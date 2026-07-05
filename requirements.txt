@@ -29,5 +29,9 @@ ipykernel>=6.29.0
 requests>=2.31.0
 tqdm>=4.66.0
 
+# ── Audio I/O ──
 sounddevice
 faster_whisper
+
+# ── Text-to-Speech (offline) ──
+pyttsx3>=2.90
