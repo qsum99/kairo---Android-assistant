@@ -1,0 +1,33 @@
+# ── Model conversion & quantization (LLM fallback: SmolLM2 / Qwen2.5) ──
+torch>=2.2.0
+transformers>=4.40.0
+sentencepiece>=0.2.0
+gguf>=0.9.0
+protobuf>=4.25.0
+accelerate>=0.30.0
+
+# ── llama.cpp Python bindings (for local prompt testing before porting to Kotlin) ──
+llama-cpp-python>=0.2.70
+
+# ── Whisper benchmarking (compare tiny.en vs base.en accuracy/speed) ──
+openai-whisper>=20231117
+soundfile>=0.12.1
+librosa>=0.10.1
+
+# ── Data analysis (UNKNOWN command logs, rule-coverage gaps) ──
+pandas>=2.2.0
+numpy>=1.26.0
+
+# ── Regex/fuzzy-match prototyping (mirrors the Kotlin FuzzyMatch logic) ──
+rapidfuzz>=3.9.0
+
+# ── Notebook environment for iterating ──
+jupyter>=1.0.0
+ipykernel>=6.29.0
+
+# ── Utilities ──
+requests>=2.31.0
+tqdm>=4.66.0
+
+sounddevice
+faster_whisper
