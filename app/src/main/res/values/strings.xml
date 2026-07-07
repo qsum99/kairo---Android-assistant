@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">Kairo</string>
+    <string name="mic_button_description">Tap to speak</string>
+    <string name="status_idle">Tap the mic to start</string>
+    <string name="status_listening">Listening…</string>
+    <string name="status_processing">Processing…</string>
+    <string name="status_speaking">Speaking…</string>
+    <string name="status_error">Something went wrong</string>
+    <string name="permission_rationale_audio">Kairo needs microphone access to hear your voice commands.</string>
+    <string name="permission_rationale_contacts">Kairo needs contacts access to call or text people by name.</string>
+    <string name="permission_rationale_phone">Kairo needs phone access to make calls hands-free.</string>
+    <string name="permission_rationale_sms">Kairo needs SMS access to send messages hands-free.</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_llm_fallback">LLM Fallback</string>
+    <string name="settings_llm_fallback_desc">Use on-device AI for complex commands</string>
+    <string name="settings_about">About Kairo</string>
+    <string name="settings_version">Version 1.0.0</string>
+    <string name="greeting">Hi! I\'m Kairo. How can I help?</string>
+    <string name="error_no_speech">I didn\'t catch that. Try again?</string>
+    <string name="error_unknown_command">I\'m not sure what to do with that.</string>
+    <string name="device_admin_label">Kairo Device Administrator</string>
+    <string name="device_admin_description">Allows Kairo to lock the screen when you ask it to.</string>
+</resources>

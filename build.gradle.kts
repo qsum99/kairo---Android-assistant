@@ -1,0 +1,5 @@
+// Top-level build file for Kairo Android Assistant
+plugins {
+    id("com.android.application") version "9.0.1" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.3.0" apply false
+}

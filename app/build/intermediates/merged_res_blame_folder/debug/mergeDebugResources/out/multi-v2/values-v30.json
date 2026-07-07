@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.kairo.assistant.app-mergeDebugResources-55:/values-v30/values-v30.xml",
+            "map": [
+                {
+                    "source": "/home/blue/.gradle/caches/9.6.1/transforms/c6ccf448f9bb9b67afd818a4bc525f64/transformed/material3-release/res/values-v30/values-v30.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "72",
+                        "endOffsets": "123"
+                    }
+                }
+            ]
+        }
+    ]
+}

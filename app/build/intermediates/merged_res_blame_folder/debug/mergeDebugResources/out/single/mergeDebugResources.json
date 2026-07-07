@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "/home/blue/.gradle/daemon/9.6.1/com.kairo.assistant.app-debug-57:/drawable_ic_mic.xml.flat",
+        "source": "/home/blue/.gradle/daemon/9.6.1/com.kairo.assistant.app-main-59:/drawable/ic_mic.xml"
+    },
+    {
+        "merged": "com.kairo.assistant.app-debug-57:/xml_device_admin_policies.xml.flat",
+        "source": "com.kairo.assistant.app-main-59:/xml/device_admin_policies.xml"
+    },
+    {
+        "merged": "/home/blue/.gradle/daemon/9.6.1/com.kairo.assistant.app-debug-57:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "/home/blue/.gradle/daemon/9.6.1/com.kairo.assistant.app-main-59:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "/home/blue/.gradle/daemon/9.6.1/com.kairo.assistant.app-debug-57:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "/home/blue/.gradle/daemon/9.6.1/com.kairo.assistant.app-main-59:/mipmap-anydpi-v26/ic_launcher.xml"
+    }
+]

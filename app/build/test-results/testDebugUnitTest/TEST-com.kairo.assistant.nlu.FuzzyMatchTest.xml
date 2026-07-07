@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kairo.assistant.nlu.FuzzyMatchTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-07-07T13:06:29.313Z" hostname="archlinux" time="0.002">
+  <properties/>
+  <testcase name="testBestMatchBelowThreshold" classname="com.kairo.assistant.nlu.FuzzyMatchTest" time="0.0"/>
+  <testcase name="testSimilarityPartialMatch" classname="com.kairo.assistant.nlu.FuzzyMatchTest" time="0.0"/>
+  <testcase name="testBestMatchSuccess" classname="com.kairo.assistant.nlu.FuzzyMatchTest" time="0.001"/>
+  <testcase name="testSimilarityExactMatch" classname="com.kairo.assistant.nlu.FuzzyMatchTest" time="0.0"/>
+  <testcase name="testSimilarityNoMatch" classname="com.kairo.assistant.nlu.FuzzyMatchTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

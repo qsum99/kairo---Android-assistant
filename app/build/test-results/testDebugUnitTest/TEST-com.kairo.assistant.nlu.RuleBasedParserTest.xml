@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.kairo.assistant.nlu.RuleBasedParserTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-07-07T13:06:29.258Z" hostname="archlinux" time="0.052">
+  <properties/>
+  <testcase name="testUnknownIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.027"/>
+  <testcase name="testCallIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.002"/>
+  <testcase name="testCallNotFound" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.002"/>
+  <testcase name="testSmsNotFound" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.0"/>
+  <testcase name="testBluetoothIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.003"/>
+  <testcase name="testCallExactMatchBypassesDisambiguation" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.0"/>
+  <testcase name="testTorchIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.001"/>
+  <testcase name="testAlarmIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.001"/>
+  <testcase name="testLockDeviceIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.0"/>
+  <testcase name="testGoogleSearchIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.0"/>
+  <testcase name="testSmsDisambiguation" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.007"/>
+  <testcase name="testOpenAppIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.0"/>
+  <testcase name="testSettingsIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.0"/>
+  <testcase name="testCallDisambiguation" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.001"/>
+  <testcase name="testBingSearchIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.001"/>
+  <testcase name="testSmsIntentMatching" classname="com.kairo.assistant.nlu.RuleBasedParserTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
