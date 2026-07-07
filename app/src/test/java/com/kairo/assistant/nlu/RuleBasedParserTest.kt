@@ -199,6 +199,39 @@ class RuleBasedParserTest {
     }
 
     @Test
+    fun testWifiIntentMatching() {
+        val command1 = parser.tryMatch("turn on wifi")
+        assertEquals(IntentType.TOGGLE_WIFI, command1.intent)
+        assertEquals("on", command1.target)
+
+        val command2 = parser.tryMatch("disable wifi")
+        assertEquals(IntentType.TOGGLE_WIFI, command2.intent)
+        assertEquals("off", command2.target)
+    }
+
+    @Test
+    fun testInternetIntentMatching() {
+        val command1 = parser.tryMatch("turn off mobile data")
+        assertEquals(IntentType.TOGGLE_INTERNET, command1.intent)
+        assertEquals("off", command1.target)
+
+        val command2 = parser.tryMatch("enable internet")
+        assertEquals(IntentType.TOGGLE_INTERNET, command2.intent)
+        assertEquals("on", command2.target)
+    }
+
+    @Test
+    fun testAirplaneModeIntentMatching() {
+        val command1 = parser.tryMatch("turn on airplane mode")
+        assertEquals(IntentType.TOGGLE_AIRPLANE, command1.intent)
+        assertEquals("on", command1.target)
+
+        val command2 = parser.tryMatch("disable aeroplane mode")
+        assertEquals(IntentType.TOGGLE_AIRPLANE, command2.intent)
+        assertEquals("off", command2.target)
+    }
+
+    @Test
     fun testUnknownIntentMatching() {
         val command = parser.tryMatch("what is the weather today")
         assertEquals(IntentType.UNKNOWN, command.intent)

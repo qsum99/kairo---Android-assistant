@@ -59,6 +59,9 @@ DEVICE ACTIONS (phone controls):
   - GOOGLE_SEARCH: Search Google. Slots: query
   - TOGGLE_TORCH: Toggle flashlight. Slots: state (on/off)
   - TOGGLE_BLUETOOTH: Toggle Bluetooth. Slots: state (on/off)
+  - TOGGLE_WIFI: Toggle Wi-Fi. Slots: state (on/off)
+  - TOGGLE_INTERNET: Toggle Internet/mobile data. Slots: state (on/off)
+  - TOGGLE_AIRPLANE: Toggle Airplane Mode. Slots: state (on/off)
   - OPEN_SETTINGS: Open device settings. No slots.
   - LOCK_DEVICE: Lock the phone screen. No slots.
 

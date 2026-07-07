@@ -14,6 +14,9 @@ import com.kairo.assistant.nlu.rules.GoogleSearchIntentMatcher
 import com.kairo.assistant.nlu.rules.BingSearchIntentMatcher
 import com.kairo.assistant.nlu.rules.TorchIntentMatcher
 import com.kairo.assistant.nlu.rules.LockDeviceIntentMatcher
+import com.kairo.assistant.nlu.rules.WifiIntentMatcher
+import com.kairo.assistant.nlu.rules.InternetIntentMatcher
+import com.kairo.assistant.nlu.rules.AirplaneModeIntentMatcher
 
 /**
  * Iterates through a prioritised list of rule-based matchers and returns the
@@ -34,6 +37,9 @@ class RuleBasedParser(
         OpenAppIntentMatcher(appResolver),
         AlarmIntentMatcher(),
         BluetoothIntentMatcher(),
+        WifiIntentMatcher(),
+        InternetIntentMatcher(),
+        AirplaneModeIntentMatcher(),
         SettingsIntentMatcher()
     )
 
