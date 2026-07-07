@@ -86,6 +86,11 @@ dependencies {
     // Google Fonts for Compose
     implementation("androidx.compose.ui:ui-text-google-fonts")
 
+    // On-device LLM inference (llama.cpp via Kotlin)
+    implementation("org.codeshipping:llama-kotlin-android:0.1.0")
+
+    // JSON parsing for LLM response parsing
+    implementation("org.json:json:20240303")
     // Debug tooling
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

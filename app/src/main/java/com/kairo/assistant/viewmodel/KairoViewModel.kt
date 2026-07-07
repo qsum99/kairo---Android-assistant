@@ -10,6 +10,8 @@ import com.kairo.assistant.data.AppResolver
 import com.kairo.assistant.data.ContactResolver
 import com.kairo.assistant.nlu.CommandRouter
 import com.kairo.assistant.nlu.RuleBasedParser
+import com.kairo.assistant.nlu.llm.LlamaEngine
+import com.kairo.assistant.nlu.llm.LlmParser
 import com.kairo.assistant.nlu.models.IntentType
 import com.kairo.assistant.nlu.models.ParsedCommand
 import com.kairo.assistant.stt.SpeechToTextManager
@@ -43,12 +45,13 @@ data class KairoUiState(
     val conversationHistory: List<ConversationItem> = emptyList(),
     val disambiguationOptions: List<Pair<String, String>> = emptyList(),
     val simOptions: List<Pair<String, String>> = emptyList(),
-    val shouldExit: Boolean = false
+    val shouldExit: Boolean = false,
+    val llmStatus: String = "" // "loading", "ready", "unavailable", or error message
 )
 
 /**
  * Main ViewModel orchestrating the full pipeline:
- * Mic → STT → Rule Parser → Action Executor → TTS
+ * Mic → STT → Rule Parser (→ LLM fallback) → Action Executor → TTS
  */
 class KairoViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -70,8 +73,11 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     private val ruleParser: RuleBasedParser by lazy {
         RuleBasedParser(contactResolver, appResolver)
     }
+    private val llmParser: LlmParser by lazy {
+        LlmParser()
+    }
     private val router: CommandRouter by lazy {
-        CommandRouter(ruleParser)
+        CommandRouter(ruleParser, llmParser)
     }
     private val dispatcher: ActionDispatcher by lazy {
         ActionDispatcher()
@@ -83,6 +89,27 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         SpeechToTextManager(application)
     }
 
+    init {
+        // Initialize the on-device LLM in the background
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                _uiState.update { it.copy(llmStatus = "loading") }
+                Log.d(TAG, "Initializing on-device LLM...")
+                LlamaEngine.initialize(application)
+                if (LlamaEngine.isAvailable) {
+                    _uiState.update { it.copy(llmStatus = "ready") }
+                    Log.d(TAG, "LLM ready for inference")
+                } else {
+                    val error = LlamaEngine.loadError ?: "Model not available"
+                    _uiState.update { it.copy(llmStatus = error) }
+                    Log.w(TAG, "LLM not available: $error")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "LLM initialization failed", e)
+                _uiState.update { it.copy(llmStatus = "error: ${e.message}") }
+            }
+        }
+    }
     /**
      * Called when the user taps the mic button.
      * Toggles between listening and idle states.
@@ -324,14 +351,25 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
 
                 // 2. Execute the action
                 val context = getApplication<Application>()
-                val result = if (command.intent == IntentType.UNKNOWN) {
-                    logUnknownCommand(text)
-                    com.kairo.assistant.actions.ActionResult(
-                        success = false,
-                        message = "I'm not sure what to do with \"$text\". Try commands like \"call Mom\" or \"open WhatsApp\"."
-                    )
-                } else {
-                    dispatcher.dispatch(command, context)
+                val result = when (command.intent) {
+                    IntentType.UNKNOWN -> {
+                        logUnknownCommand(text)
+                        com.kairo.assistant.actions.ActionResult(
+                            success = false,
+                            message = "I'm not sure what to do with \"$text\". Try commands like \"call Mom\" or \"open WhatsApp\"."
+                        )
+                    }
+                    IntentType.CONVERSATION -> {
+                        // LLM generated a conversational response — speak it
+                        val response = command.extra ?: "I'm not sure how to help with that."
+                        com.kairo.assistant.actions.ActionResult(
+                            success = true,
+                            message = response
+                        )
+                    }
+                    else -> {
+                        dispatcher.dispatch(command, context)
+                    }
                 }
 
                 Log.d(TAG, "Action result: $result")
@@ -603,5 +641,6 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
         tts.shutdown()
         sttManager.destroy()
+        LlamaEngine.shutdown()
     }
 }

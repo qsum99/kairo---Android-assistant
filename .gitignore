@@ -3,6 +3,18 @@ __pycache__/
 *$py.class
 .venv/
 .audio_tmp/
-models/
+/models/
 .idea/
 .vscode/
+
+# Android / Gradle build artifacts
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+*.aab
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
