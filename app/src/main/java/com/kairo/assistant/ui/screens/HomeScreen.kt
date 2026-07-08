@@ -142,6 +142,13 @@ fun HomeScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = KairoOnSurfaceVariant
                         )
+                        if (uiState.llmStatus.isNotEmpty() && uiState.llmStatus != "ready") {
+                            Text(
+                                text = "LLM: ${uiState.llmStatus}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (uiState.llmStatus == "loading") KairoAccent else KairoError
+                            )
+                        }
                     }
 
                     IconButton(
