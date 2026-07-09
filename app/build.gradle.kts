@@ -11,8 +11,8 @@ android {
         applicationId = "com.kairo.assistant"
         minSdk = 26
         targetSdk = 35
-        versionCode = 29
-        versionName = "1.3.1"
+        versionCode = 31
+        versionName = "1.3.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

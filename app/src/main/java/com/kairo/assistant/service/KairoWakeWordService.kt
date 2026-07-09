@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -28,6 +29,57 @@ class KairoWakeWordService : Service() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening = false
     private val handler = Handler(Looper.getMainLooper())
+
+    private var originalSystemVolume: Int = -1
+    private var originalNotificationVolume: Int = -1
+
+    private fun muteSystemSounds() {
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            originalSystemVolume = audioManager.getStreamVolume(AudioManager.STREAM_SYSTEM)
+            originalNotificationVolume = audioManager.getStreamVolume(AudioManager.STREAM_NOTIFICATION)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0)
+                audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_MUTE, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.setStreamMute(AudioManager.STREAM_SYSTEM, true)
+                @Suppress("DEPRECATION")
+                audioManager.setStreamMute(AudioManager.STREAM_NOTIFICATION, true)
+            }
+            Log.d("KairoWakeWordService", "Muted system streams to silence background speech recognizer beep")
+        } catch (e: Exception) {
+            Log.w("KairoWakeWordService", "Failed to mute background system streams", e)
+        }
+    }
+
+    private fun unmuteSystemSounds() {
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0)
+                audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.setStreamMute(AudioManager.STREAM_SYSTEM, false)
+                @Suppress("DEPRECATION")
+                audioManager.setStreamMute(AudioManager.STREAM_NOTIFICATION, false)
+            }
+
+            if (originalSystemVolume != -1) {
+                audioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, originalSystemVolume, 0)
+                originalSystemVolume = -1
+            }
+            if (originalNotificationVolume != -1) {
+                audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, originalNotificationVolume, 0)
+                originalNotificationVolume = -1
+            }
+            Log.d("KairoWakeWordService", "Restored background system stream volumes")
+        } catch (e: Exception) {
+            Log.w("KairoWakeWordService", "Failed to restore background system streams", e)
+        }
+    }
 
     companion object {
         private const val CHANNEL_ID = "kairo_wake_word"
@@ -128,18 +180,27 @@ class KairoWakeWordService : Service() {
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 20000L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 20000L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 20000L)
                 }
                 speechRecognizer?.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
                         isListening = true
+                        unmuteSystemSounds() // Unmute since start beep has completed silently
                     }
-                    override fun onBeginningOfSpeech() {}
+                    override fun onBeginningOfSpeech() {
+                        unmuteSystemSounds()
+                    }
                     override fun onRmsChanged(rmsdB: Float) {}
                     override fun onBufferReceived(buffer: ByteArray?) {}
                     override fun onEndOfSpeech() {
                         isListening = false
+                        muteSystemSounds() // Mute system streams to silence ending beep sound
                     }
                     override fun onError(error: Int) {
+                        unmuteSystemSounds() // Ensure streams are unmuted
                         isListening = false
                         Log.d("KairoWakeWordService", "Speech recognition error: $error")
                         if (error == SpeechRecognizer.ERROR_CLIENT || error == 11) {
@@ -151,6 +212,7 @@ class KairoWakeWordService : Service() {
                         }
                     }
                     override fun onResults(results: Bundle?) {
+                        unmuteSystemSounds() // Restore streams volume
                         isListening = false
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         if (!matches.isNullOrEmpty()) {
@@ -175,8 +237,11 @@ class KairoWakeWordService : Service() {
                     }
                     override fun onEvent(eventType: Int, params: Bundle?) {}
                 })
+                
+                muteSystemSounds() // Mute system streams before starting to listen
                 speechRecognizer?.startListening(intent)
             } catch (e: Exception) {
+                unmuteSystemSounds() // Safety unmute on fail
                 Log.e("KairoWakeWordService", "Failed to start listening", e)
                 isListening = false
                 if (!isAppActive) {
@@ -187,6 +252,7 @@ class KairoWakeWordService : Service() {
     }
 
     private fun stopListening() {
+        unmuteSystemSounds() // Restore volume
         handler.post {
             try {
                 speechRecognizer?.cancel()
@@ -285,6 +351,7 @@ class KairoWakeWordService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unmuteSystemSounds() // Ensure volume is restored if stopped or destroyed
         try {
             unregisterReceiver(screenReceiver)
         } catch (e: Exception) {

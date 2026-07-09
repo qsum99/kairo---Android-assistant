@@ -2,6 +2,8 @@ package com.kairo.assistant.stt
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -13,6 +15,57 @@ class SpeechToTextManager(private val context: Context) {
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var isCurrentlyListening = false
+
+    private var originalSystemVolume: Int = -1
+    private var originalNotificationVolume: Int = -1
+
+    private fun muteSystemSounds() {
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            originalSystemVolume = audioManager.getStreamVolume(AudioManager.STREAM_SYSTEM)
+            originalNotificationVolume = audioManager.getStreamVolume(AudioManager.STREAM_NOTIFICATION)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0)
+                audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_MUTE, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.setStreamMute(AudioManager.STREAM_SYSTEM, true)
+                @Suppress("DEPRECATION")
+                audioManager.setStreamMute(AudioManager.STREAM_NOTIFICATION, true)
+            }
+            Log.d("SpeechToTextManager", "Muted system streams to silence start/stop voice ding sounds")
+        } catch (e: Exception) {
+            Log.w("SpeechToTextManager", "Failed to mute system streams", e)
+        }
+    }
+
+    private fun unmuteSystemSounds() {
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0)
+                audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.setStreamMute(AudioManager.STREAM_SYSTEM, false)
+                @Suppress("DEPRECATION")
+                audioManager.setStreamMute(AudioManager.STREAM_NOTIFICATION, false)
+            }
+
+            if (originalSystemVolume != -1) {
+                audioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, originalSystemVolume, 0)
+                originalSystemVolume = -1
+            }
+            if (originalNotificationVolume != -1) {
+                audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, originalNotificationVolume, 0)
+                originalNotificationVolume = -1
+            }
+            Log.d("SpeechToTextManager", "Unmuted system streams")
+        } catch (e: Exception) {
+            Log.w("SpeechToTextManager", "Failed to restore system streams volume", e)
+        }
+    }
 
     fun startListening(
         onResult: (String) -> Unit,
@@ -39,10 +92,12 @@ class SpeechToTextManager(private val context: Context) {
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
                 Log.d("SpeechToTextManager", "Ready for speech")
+                unmuteSystemSounds() // Unmute since the start-beep has already executed silently
             }
 
             override fun onBeginningOfSpeech() {
                 Log.d("SpeechToTextManager", "Speech started")
+                unmuteSystemSounds()
             }
 
             override fun onRmsChanged(rmsdB: Float) {
@@ -56,9 +111,11 @@ class SpeechToTextManager(private val context: Context) {
             override fun onEndOfSpeech() {
                 Log.d("SpeechToTextManager", "Speech ended")
                 isCurrentlyListening = false
+                muteSystemSounds() // Mute system streams to silence the ending voice ding sound
             }
 
             override fun onError(error: Int) {
+                unmuteSystemSounds() // Ensure system streams are unmuted on failure
                 val errorMessage = when (error) {
                     SpeechRecognizer.ERROR_AUDIO -> "Audio error"
                     SpeechRecognizer.ERROR_CLIENT -> "Client error"
@@ -85,6 +142,7 @@ class SpeechToTextManager(private val context: Context) {
             }
 
             override fun onResults(results: Bundle?) {
+                unmuteSystemSounds() // Unmute system streams after receiving results
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!matches.isNullOrEmpty()) {
                     onResult(matches[0])
@@ -104,9 +162,11 @@ class SpeechToTextManager(private val context: Context) {
         })
 
         try {
+            muteSystemSounds() // Mute before starting the recognizer
             speechRecognizer?.startListening(intent)
             isCurrentlyListening = true
         } catch (e: Exception) {
+            unmuteSystemSounds() // Safety unmute on fail
             Log.e("SpeechToTextManager", "Failed to start listening", e)
             isCurrentlyListening = false
             onError("Failed to start voice listener: ${e.message}")
