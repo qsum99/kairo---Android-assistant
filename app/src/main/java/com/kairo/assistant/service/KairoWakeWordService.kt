@@ -153,39 +153,12 @@ class KairoWakeWordService : Service() {
         return START_STICKY
     }
 
-    private fun startListening() {
-        if (isAppActive || isListening) return
+    private fun initSpeechRecognizer() {
+        if (speechRecognizer != null) return
 
-        if (androidx.core.content.ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.RECORD_AUDIO
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
-            Log.e("KairoWakeWordService", "RECORD_AUDIO permission not granted")
-            return
-        }
-        
-        handler.post {
-            try {
-                if (speechRecognizer == null) {
-                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(applicationContext)
-                } else {
-                    try {
-                        speechRecognizer?.cancel()
-                    } catch (e: Exception) {
-                        Log.w("KairoWakeWordService", "Error cancelling recognizer", e)
-                    }
-                }
-
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 20000L)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 20000L)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 20000L)
-                }
-                speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+        try {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(applicationContext).apply {
+                setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
                         isListening = true
                         unmuteSystemSounds() // Unmute since start beep has completed silently
@@ -204,11 +177,11 @@ class KairoWakeWordService : Service() {
                         isListening = false
                         Log.d("KairoWakeWordService", "Speech recognition error: $error")
                         if (error == SpeechRecognizer.ERROR_CLIENT || error == 11) {
-                            stopListening()
+                            destroySpeechRecognizer()
                         }
                         // If app goes active, do not restart
                         if (!isAppActive) {
-                            handler.postDelayed({ startListening() }, 500)
+                            startListening()
                         }
                     }
                     override fun onResults(results: Bundle?) {
@@ -223,7 +196,7 @@ class KairoWakeWordService : Service() {
                             }
                         }
                         if (!isAppActive) {
-                            handler.postDelayed({ startListening() }, 500)
+                            startListening()
                         }
                     }
                     override fun onPartialResults(partialResults: Bundle?) {
@@ -237,7 +210,122 @@ class KairoWakeWordService : Service() {
                     }
                     override fun onEvent(eventType: Int, params: Bundle?) {}
                 })
-                
+            }
+            Log.d("KairoWakeWordService", "SpeechRecognizer initialized and listener bound successfully")
+        } catch (e: Exception) {
+            Log.e("KairoWakeWordService", "Failed to initialize SpeechRecognizer", e)
+        }
+    }
+
+    private fun destroySpeechRecognizer() {
+        handler.post {
+            try {
+                speechRecognizer?.cancel()
+                speechRecognizer?.destroy()
+            } catch (e: Exception) {
+                Log.w("KairoWakeWordService", "Error destroying speech recognizer", e)
+            }
+            speechRecognizer = null
+            isListening = false
+        }
+    }
+
+    private var dummyAudioRecord: android.media.AudioRecord? = null
+    private var isDummyRecording = false
+    private var dummyThread: Thread? = null
+
+    private fun startDummyRecording() {
+        if (isDummyRecording) return
+        isDummyRecording = true
+        
+        dummyThread = Thread {
+            val sampleRate = 16000
+            val channelConfig = android.media.AudioFormat.CHANNEL_IN_MONO
+            val audioFormat = android.media.AudioFormat.ENCODING_PCM_16BIT
+            val bufferSize = android.media.AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+            
+            if (bufferSize <= 0) return@Thread
+            
+            try {
+                if (androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.RECORD_AUDIO
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    val record = android.media.AudioRecord(
+                        android.media.MediaRecorder.AudioSource.MIC,
+                        sampleRate,
+                        channelConfig,
+                        audioFormat,
+                        bufferSize
+                    )
+                    dummyAudioRecord = record
+                    record.startRecording()
+                    Log.d("KairoWakeWordService", "Started continuous background AudioRecord mic hold")
+                    
+                    val buffer = ByteArray(bufferSize)
+                    while (isDummyRecording && !isAppActive) {
+                        record.read(buffer, 0, buffer.size)
+                        Thread.sleep(100) // Sleep to minimize CPU impact
+                    }
+                    
+                    try {
+                        record.stop()
+                    } catch (e: Exception) {}
+                    try {
+                        record.release()
+                    } catch (e: Exception) {}
+                    Log.d("KairoWakeWordService", "Stopped continuous background AudioRecord mic hold")
+                }
+            } catch (e: Exception) {
+                Log.w("KairoWakeWordService", "Failed running continuous AudioRecord hold thread", e)
+            } finally {
+                dummyAudioRecord = null
+                isDummyRecording = false
+            }
+        }.apply { start() }
+    }
+
+    private fun stopDummyRecording() {
+        isDummyRecording = false
+        dummyThread?.interrupt()
+        dummyThread = null
+    }
+
+    private fun startListening() {
+        if (isAppActive || isListening) return
+
+        // Verify if wake word is actually enabled in settings before starting background listening
+        val prefs = getSharedPreferences("kairo_prefs", MODE_PRIVATE)
+        val wakeWordEnabled = prefs.getBoolean("wake_word_enabled", false)
+        if (!wakeWordEnabled) {
+            Log.d("KairoWakeWordService", "Wake word is disabled in settings. Skipping background listening.")
+            return
+        }
+
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.RECORD_AUDIO
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.e("KairoWakeWordService", "RECORD_AUDIO permission not granted")
+            return
+        }
+        
+        handler.post {
+            try {
+                startDummyRecording() // Hold microphone open continuously in background
+                initSpeechRecognizer()
+
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 20000L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 20000L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 20000L)
+                }
+
                 muteSystemSounds() // Mute system streams before starting to listen
                 speechRecognizer?.startListening(intent)
             } catch (e: Exception) {
@@ -253,16 +341,8 @@ class KairoWakeWordService : Service() {
 
     private fun stopListening() {
         unmuteSystemSounds() // Restore volume
-        handler.post {
-            try {
-                speechRecognizer?.cancel()
-                speechRecognizer?.destroy()
-            } catch (e: Exception) {
-                Log.w("KairoWakeWordService", "Error stopping recognizer", e)
-            }
-            speechRecognizer = null
-            isListening = false
-        }
+        stopDummyRecording() // Release background mic lock
+        destroySpeechRecognizer()
     }
 
     private fun wakeupAssistant() {
@@ -274,37 +354,12 @@ class KairoWakeWordService : Service() {
             putExtra("start_listening_auto", true)
         }
 
-        // 1. Try to launch activity directly (bypasses notification if screen is unlocked or app is default assistant)
+        // Try to launch activity directly
         try {
             startActivity(intent)
             Log.d("KairoWakeWordService", "Successfully launched assistant activity directly")
         } catch (e: Exception) {
-            Log.w("KairoWakeWordService", "Direct startActivity failed (Android background launch limit). Relying on notification fallback.", e)
-        }
-
-        // 2. Fire high-priority notification with full-screen intent to ensure it triggers (on lockscreen or background fallback)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle("Kairo Voice Assistant")
-            .setContentText("Kairo is activated")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setFullScreenIntent(pendingIntent, true)
-            .setAutoCancel(true)
-            .build()
-
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        try {
-            notificationManager.notify(WAKEUP_NOTIFICATION_ID, notification)
-        } catch (e: Exception) {
-            Log.e("KairoWakeWordService", "Failed to post wakeup notification", e)
+            Log.e("KairoWakeWordService", "Direct startActivity failed", e)
         }
     }
 
