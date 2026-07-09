@@ -212,7 +212,7 @@ fun HomeScreen(
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     modifier = Modifier.height(32.dp)
                                 ) {
-                                    Text("Download (~398MB)", color = KairoOnSurface, style = MaterialTheme.typography.labelMedium)
+                                    Text("Download (174MB)", color = KairoOnSurface, style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }

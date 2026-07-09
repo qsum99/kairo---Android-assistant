@@ -449,6 +449,19 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                             message = response
                         )
                     }
+                    IntentType.EXIT -> {
+                        val farewells = listOf(
+                            "Goodbye! Have a nice day!",
+                            "Bye! See you soon!",
+                            "Goodbye! Have a great day!",
+                            "Bye! Talk to you later!"
+                        )
+                        val response = farewells[kotlin.random.Random.nextInt(farewells.size)]
+                        com.kairo.assistant.actions.ActionResult(
+                            success = true,
+                            message = response
+                        )
+                    }
                     else -> {
                         dispatcher.dispatch(command, context)
                     }
@@ -671,7 +684,12 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        val isImmediateExitIntent = result.success && (result.message.startsWith("Opening") || result.message.startsWith("Searching"))
+        val isImmediateExitIntent = result.success && (
+            result.message.startsWith("Opening") || 
+            result.message.startsWith("Searching") || 
+            result.message.startsWith("Bye") || 
+            result.message.startsWith("Goodbye")
+        )
 
         _uiState.update {
             it.copy(

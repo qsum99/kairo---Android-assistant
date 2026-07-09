@@ -18,5 +18,6 @@ enum class IntentType {
     TOGGLE_TORCH,
     LOCK_DEVICE,
     CONVERSATION,
+    EXIT,
     UNKNOWN
 }
