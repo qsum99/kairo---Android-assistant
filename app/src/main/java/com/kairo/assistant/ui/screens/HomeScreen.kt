@@ -146,7 +146,7 @@ fun HomeScreen(
                             Text(
                                 text = "LLM: ${uiState.llmStatus}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (uiState.llmStatus == "loading") KairoAccent else KairoError
+                                color = if (uiState.llmStatus == "loading" || uiState.isLlmDownloading) KairoAccent else KairoError
                             )
                         }
                     }
@@ -161,6 +161,71 @@ fun HomeScreen(
                             tint = KairoOnSurfaceVariant,
                             modifier = Modifier.size(22.dp)
                         )
+                    }
+                }
+
+                if (uiState.llmStatus.isNotEmpty() && uiState.llmStatus != "ready") {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(KairoSurfaceVariant.copy(alpha = 0.4f))
+                            .border(BorderStroke(1.dp, KairoSurfaceVariant), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "On-Device LLM Fallback",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = KairoOnSurface,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (uiState.isLlmDownloading) {
+                                        "Downloading: ${(uiState.llmDownloadProgress?.times(100))?.toInt() ?: 0}%"
+                                    } else {
+                                        "Required for offline chat & queries"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = KairoOnSurfaceVariant
+                                )
+                            }
+                            
+                            if (uiState.isLlmDownloading) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    progress = uiState.llmDownloadProgress ?: 0f,
+                                    modifier = Modifier.size(24.dp),
+                                    color = KairoPrimary,
+                                    strokeWidth = 2.5.dp
+                                )
+                            } else {
+                                Button(
+                                    onClick = { viewModel.downloadLlmModel() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = KairoPrimary),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text("Download (~398MB)", color = KairoOnSurface, style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                        
+                        if (uiState.isLlmDownloading) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            androidx.compose.material3.LinearProgressIndicator(
+                                progress = uiState.llmDownloadProgress ?: 0f,
+                                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                color = KairoPrimary,
+                                trackColor = KairoSurfaceVariant
+                            )
+                        }
                     }
                 }
 

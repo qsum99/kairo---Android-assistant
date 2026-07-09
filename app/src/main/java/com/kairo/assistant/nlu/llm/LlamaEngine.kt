@@ -7,6 +7,7 @@ import com.kairo.assistant.nlu.models.ParsedCommand
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -19,7 +20,7 @@ import java.util.concurrent.Executors
 object LlamaEngine {
 
     private const val TAG = "LlamaEngine"
-    private const val MODEL_FILENAME = "kairo_model.gguf"
+    private const val MODEL_FILENAME = "kairo_model_v5.gguf"
 
     // Dedicated single thread to prevent JNI threading crashes (SIGSEGV)
     private val llmDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
@@ -28,6 +29,14 @@ object LlamaEngine {
     private var _isLoading = false
     private var _loadError: String? = null
     private val inferenceMutex = Mutex()
+
+    private var _downloadProgress = 0f
+    private var _isDownloading = false
+    private var _downloadError: String? = null
+
+    val downloadProgressFlow = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)
+    val isDownloading: Boolean get() = _isDownloading
+    val downloadError: String? get() = _downloadError
 
     /** True if the model is loaded and ready for inference. */
     val isAvailable: Boolean get() = llamaModel?.isLoaded == true
@@ -39,6 +48,86 @@ object LlamaEngine {
     val loadError: String? get() = _loadError
 
     /**
+     * Download the optimized small model in the background.
+     */
+    suspend fun downloadModel(context: Context): Boolean {
+        if (_isDownloading) return false
+        _isDownloading = true
+        _downloadError = null
+        downloadProgressFlow.value = 0f
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val tempFile = java.io.File(context.filesDir, "$MODEL_FILENAME.tmp")
+                val finalFile = java.io.File(context.filesDir, MODEL_FILENAME)
+
+                if (tempFile.exists()) tempFile.delete()
+
+                Log.i(TAG, "Starting model download...")
+                val url = java.net.URL("https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q2_K.gguf")
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.connectTimeout = 30000
+                connection.readTimeout = 30000
+                connection.instanceFollowRedirects = true
+                connection.connect()
+
+                if (connection.responseCode != java.net.HttpURLConnection.HTTP_OK) {
+                    throw java.io.IOException("Server returned HTTP ${connection.responseCode}")
+                }
+
+                val fileLength = connection.contentLengthLong
+                var totalBytesRead = 0L
+
+                connection.inputStream.use { input ->
+                    tempFile.outputStream().use { output ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        var lastProgressUpdate = 0L
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                            totalBytesRead += bytesRead
+                            if (fileLength > 0) {
+                                val progress = totalBytesRead.toFloat() / fileLength
+                                _downloadProgress = progress
+                                val now = System.currentTimeMillis()
+                                if (now - lastProgressUpdate > 100) {
+                                    downloadProgressFlow.value = progress
+                                    lastProgressUpdate = now
+                                }
+                            }
+                        }
+                    }
+                }
+
+                downloadProgressFlow.value = 1.0f
+
+                if (tempFile.renameTo(finalFile)) {
+                    Log.i(TAG, "Model downloaded successfully to ${finalFile.absolutePath}")
+                    _isDownloading = false
+                    downloadProgressFlow.value = null
+                    
+                    // Release download memory buffer spikes before loading
+                    System.gc()
+                    Runtime.getRuntime().gc()
+                    kotlinx.coroutines.delay(3000)
+                    System.gc()
+                    
+                    initialize(context)
+                    true
+                } else {
+                    throw java.io.IOException("Failed to rename temporary model file")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Model download failed", e)
+                _downloadError = "Download failed: ${e.message}"
+                _isDownloading = false
+                downloadProgressFlow.value = null
+                false
+            }
+        }
+    }
+
+    /**
      * Initialize the LLM engine.
      */
     suspend fun initialize(context: Context) {
@@ -48,6 +137,32 @@ object LlamaEngine {
         _loadError = null
 
         withContext(llmDispatcher) {
+            try {
+                // Delete the old heavy models to free up space
+                val oldModelFile1 = java.io.File(context.filesDir, "kairo_model.gguf")
+                if (oldModelFile1.exists()) {
+                    oldModelFile1.delete()
+                    Log.i(TAG, "Deleted old large model file (kairo_model.gguf)")
+                }
+                val oldModelFile2 = java.io.File(context.filesDir, "kairo_model_v2.gguf")
+                if (oldModelFile2.exists()) {
+                    oldModelFile2.delete()
+                    Log.i(TAG, "Deleted old v2 model file (kairo_model_v2.gguf)")
+                }
+                val oldModelFile3 = java.io.File(context.filesDir, "kairo_model_v3.gguf")
+                if (oldModelFile3.exists()) {
+                    oldModelFile3.delete()
+                    Log.i(TAG, "Deleted old v3 model file (kairo_model_v3.gguf)")
+                }
+                val oldModelFile4 = java.io.File(context.filesDir, "kairo_model_v4.gguf")
+                if (oldModelFile4.exists()) {
+                    oldModelFile4.delete()
+                    Log.i(TAG, "Deleted old v4 model file (kairo_model_v4.gguf)")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to clean up old model files", e)
+            }
+
             try {
                 val modelFile = java.io.File(context.filesDir, MODEL_FILENAME)
 
@@ -62,16 +177,16 @@ object LlamaEngine {
 
                 val model = org.codeshipping.llamakotlin.LlamaModel.load(modelFile.absolutePath) {
                     contextSize = 512
-                    batchSize = 1
-                    threads = 1
+                    batchSize = 512
+                    threads = 2
                     gpuLayers = 0
                 }
 
                 llamaModel = model
                 Log.i(TAG, "Model loaded successfully [OK]")
 
-            } catch (e: Exception) {
-                _loadError = "Load failed: ${e.message}"
+            } catch (e: Throwable) {
+                _loadError = "Load failed: ${e.message ?: e.toString()}"
                 Log.e(TAG, _loadError!!, e)
             } finally {
                 _isLoading = false
@@ -95,9 +210,11 @@ object LlamaEngine {
                 
                 Log.d(TAG, "Running inference on dedicated thread...")
 
-                model.generateStream(prompt).collect { token ->
-                    responseBuilder.append(token)
-                }
+                model.generateStream(prompt)
+                    .flowOn(llmDispatcher)
+                    .collect { token ->
+                        responseBuilder.append(token)
+                    }
                 
                 val rawOutput = responseBuilder.toString().trim()
                 Log.d(TAG, "LLM response: $rawOutput")

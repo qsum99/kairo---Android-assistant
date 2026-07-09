@@ -46,7 +46,9 @@ data class KairoUiState(
     val disambiguationOptions: List<Pair<String, String>> = emptyList(),
     val simOptions: List<Pair<String, String>> = emptyList(),
     val shouldExit: Boolean = false,
-    val llmStatus: String = "" // "loading", "ready", "unavailable", or error message
+    val llmStatus: String = "", // "loading", "ready", "unavailable", or error message
+    val llmDownloadProgress: Float? = null,
+    val isLlmDownloading: Boolean = false
 )
 
 /**
@@ -74,7 +76,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         RuleBasedParser(contactResolver, appResolver)
     }
     private val llmParser: LlmParser by lazy {
-        LlmParser()
+        LlmParser(application)
     }
     private val router: CommandRouter by lazy {
         CommandRouter(ruleParser, llmParser)
@@ -90,9 +92,36 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        // Collect model download progress
+        viewModelScope.launch(Dispatchers.IO) {
+            LlamaEngine.downloadProgressFlow.collect { progress ->
+                _uiState.update {
+                    it.copy(
+                        llmDownloadProgress = progress,
+                        isLlmDownloading = progress != null,
+                        llmStatus = if (progress != null) "downloading (${(progress * 100).toInt()}%)" else it.llmStatus
+                    )
+                }
+            }
+        }
+
         // Initialize the on-device LLM in the background
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val prefs = application.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
+                val activityManager = application.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                val memoryInfo = android.app.ActivityManager.MemoryInfo()
+                activityManager.getMemoryInfo(memoryInfo)
+                val isLowRam = memoryInfo.totalMem < 4831838208L // 4.5 GB
+                
+                val isFallbackEnabled = prefs.getBoolean("llm_fallback_enabled", !isLowRam)
+                
+                if (!isFallbackEnabled) {
+                    _uiState.update { it.copy(llmStatus = if (isLowRam) "disabled (low RAM)" else "disabled") }
+                    Log.d(TAG, "LLM fallback is disabled. Skipping initialization.")
+                    return@launch
+                }
+
                 _uiState.update { it.copy(llmStatus = "loading") }
                 Log.d(TAG, "Initializing on-device LLM...")
                 LlamaEngine.initialize(application)
@@ -104,9 +133,61 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.update { it.copy(llmStatus = error) }
                     Log.w(TAG, "LLM not available: $error")
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "LLM initialization failed", e)
-                _uiState.update { it.copy(llmStatus = "error: ${e.message}") }
+                _uiState.update { it.copy(llmStatus = "error: ${e.message ?: e.toString()}") }
+            }
+        }
+    }
+
+    /**
+     * Download the on-device model file in the background.
+     */
+    fun downloadLlmModel() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(llmStatus = "downloading (0%)") }
+            val success = LlamaEngine.downloadModel(getApplication())
+            if (success) {
+                _uiState.update { it.copy(llmStatus = "ready") }
+            } else {
+                val err = LlamaEngine.downloadError ?: "Download failed"
+                _uiState.update { it.copy(llmStatus = err) }
+            }
+        }
+    }
+
+    /**
+     * Toggles LLM fallback and manages its lifecycle.
+     */
+    fun setLlmFallbackEnabled(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val context = getApplication<Application>()
+            val prefs = context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("llm_fallback_enabled", enabled).apply()
+            
+            if (enabled) {
+                try {
+                    _uiState.update { it.copy(llmStatus = "loading") }
+                    Log.d(TAG, "Initializing LLM on user request...")
+                    LlamaEngine.initialize(context)
+                    if (LlamaEngine.isAvailable) {
+                        _uiState.update { it.copy(llmStatus = "ready") }
+                    } else {
+                        val error = LlamaEngine.loadError ?: "Model not available"
+                        _uiState.update { it.copy(llmStatus = error) }
+                    }
+                } catch (e: Throwable) {
+                    Log.e(TAG, "LLM initialization failed", e)
+                    _uiState.update { it.copy(llmStatus = "error: ${e.message ?: e.toString()}") }
+                }
+            } else {
+                Log.d(TAG, "Disabling LLM and releasing resources...")
+                LlamaEngine.shutdown()
+                val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                val memoryInfo = android.app.ActivityManager.MemoryInfo()
+                activityManager.getMemoryInfo(memoryInfo)
+                val isLowRam = memoryInfo.totalMem < 4831838208L
+                _uiState.update { it.copy(llmStatus = if (isLowRam) "disabled (low RAM)" else "disabled") }
             }
         }
     }

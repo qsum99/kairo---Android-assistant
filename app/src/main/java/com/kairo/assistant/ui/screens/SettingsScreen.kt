@@ -60,14 +60,25 @@ import com.kairo.assistant.service.WakeWordServiceHelper
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onLlmFallbackToggled: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE) }
     
-    var llmFallbackEnabled by remember { mutableStateOf(false) }
+    val isLowRam = remember {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val memoryInfo = android.app.ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memoryInfo)
+        memoryInfo.totalMem < 4831838208L // 4.5 GB
+    }
+    
+    var llmFallbackEnabled by remember { mutableStateOf(prefs.getBoolean("llm_fallback_enabled", !isLowRam)) }
     var wakeWordEnabled by remember { mutableStateOf(prefs.getBoolean("wake_word_enabled", false)) }
     var allowOnLockScreen by remember { mutableStateOf(prefs.getBoolean("allow_on_lock_screen", false)) }
+    
+    var showLogDialog by remember { mutableStateOf(false) }
+    var logText by remember { mutableStateOf("") }
 
     val notificationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -145,11 +156,23 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = KairoOnSurfaceVariant
                             )
+                            if (isLowRam) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "⚠️ Not recommended for 4GB RAM devices (may cause crashes)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = KairoAccent
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Switch(
                             checked = llmFallbackEnabled,
-                            onCheckedChange = { llmFallbackEnabled = it },
+                            onCheckedChange = { isChecked ->
+                                llmFallbackEnabled = isChecked
+                                prefs.edit().putBoolean("llm_fallback_enabled", isChecked).apply()
+                                onLlmFallbackToggled(isChecked)
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = KairoPrimary,
                                 checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
@@ -360,7 +383,86 @@ fun SettingsScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Debug Logs Button
+            Button(
+                onClick = {
+                    logText = getLogcatLogs(context)
+                    showLogDialog = true
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = KairoSurface),
+                modifier = Modifier.fillMaxWidth()
+                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(12.dp)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("View Debug logs", color = KairoOnSurface)
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showLogDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showLogDialog = false },
+            title = { Text("System Debug logs", color = KairoOnSurface) },
+            text = {
+                Column {
+                    Button(
+                        onClick = {
+                            try {
+                                val logFile = java.io.File(context.getExternalFilesDir(null), "kairo_debug_logs.txt")
+                                logFile.writeText(logText)
+                                android.widget.Toast.makeText(context, "Saved to: " + logFile.absolutePath, android.widget.Toast.LENGTH_LONG).show()
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, "Failed: " + e.message, android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = KairoPrimary),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Save logs to File", color = KairoOnSurface)
+                    }
+                    Box(
+                        modifier = Modifier.height(300.dp)
+                            .verticalScroll(rememberScrollState())
+                            .background(KairoDarkBg)
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = logText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = KairoOnSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showLogDialog = false }) {
+                    Text("Close")
+                }
+            },
+            containerColor = KairoSurface
+        )
+    }
+}
+
+fun getLogcatLogs(context: Context): String {
+    return try {
+        val process = Runtime.getRuntime().exec("logcat -d -v time")
+        val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
+        val lines = mutableListOf<String>()
+        var line: String?
+        while (reader.readLine().also { line = it } != null) {
+            if (line!!.contains("Kairo") || line!!.contains("Llama") || line!!.contains("Fatal") || line!!.contains("SIG") || line!!.contains("backtrace") || line!!.contains("DEBUG") || line!!.contains("libc")) {
+                lines.add(line!!)
+            }
+        }
+        val lastLines = if (lines.size > 200) lines.drop(lines.size - 200) else lines
+        if (lastLines.isEmpty()) "No crash/system logs found." else lastLines.joinToString("\n")
+    } catch (e: Exception) {
+        "Failed to read logs: ${e.message}"
     }
 }

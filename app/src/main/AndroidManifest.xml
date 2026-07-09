@@ -5,6 +5,9 @@
     <!-- Read SIM cards / carrier names for dual-SIM support -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
+    <!-- Internet access for model downloading and web fallback searches -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Microphone for voice input -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
@@ -35,7 +38,6 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Kairo"
         tools:targetApi="35">

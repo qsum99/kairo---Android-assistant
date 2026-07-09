@@ -66,6 +66,9 @@ fun KairoApp(onExit: () -> Unit = {}) {
             SettingsScreen(
                 onBackClick = {
                     navController.popBackStack()
+                },
+                onLlmFallbackToggled = { enabled ->
+                    kairoViewModel.setLlmFallbackEnabled(enabled)
                 }
             )
         }
