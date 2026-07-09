@@ -26,6 +26,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         configureLockScreenFlags()
 
+        // Auto-start background wake-word service if enabled in settings
+        val prefs = getSharedPreferences("kairo_prefs", MODE_PRIVATE)
+        val wakeWordEnabled = prefs.getBoolean("wake_word_enabled", false)
+        if (wakeWordEnabled) {
+            com.kairo.assistant.service.WakeWordServiceHelper.start(this)
+        }
+
         // Always start listening on launch (manual or assistant trigger)
         viewModel.startListeningAutomatic()
 

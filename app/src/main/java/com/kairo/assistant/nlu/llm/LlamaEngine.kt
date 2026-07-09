@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
 object LlamaEngine {
 
     private const val TAG = "LlamaEngine"
-    private const val MODEL_FILENAME = "kairo_model_v6.gguf"
+    private const val MODEL_FILENAME = "kairo_model_v7.gguf"
 
     // Dedicated single thread to prevent JNI threading crashes (SIGSEGV)
     private val llmDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
@@ -64,7 +64,7 @@ object LlamaEngine {
                 if (tempFile.exists()) tempFile.delete()
 
                 Log.i(TAG, "Starting model download...")
-                val url = java.net.URL("https://huggingface.co/afrideva/Llama-160M-Chat-v1-GGUF/resolve/main/llama-160m-chat-v1.q8_0.gguf")
+                val url = java.net.URL("https://huggingface.co/QuantFactory/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct.Q2_K.gguf")
                 val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.connectTimeout = 30000
                 connection.readTimeout = 30000
@@ -164,6 +164,11 @@ object LlamaEngine {
                     oldModelFile5.delete()
                     Log.i(TAG, "Deleted old v5 model file (kairo_model_v5.gguf)")
                 }
+                val oldModelFile6 = java.io.File(context.filesDir, "kairo_model_v6.gguf")
+                if (oldModelFile6.exists()) {
+                    oldModelFile6.delete()
+                    Log.i(TAG, "Deleted old v6 160M model file (kairo_model_v6.gguf)")
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to clean up old model files", e)
             }
@@ -211,34 +216,41 @@ object LlamaEngine {
 
         return@withLock withContext(llmDispatcher) {
             try {
-                // Proper ChatML format for the Llama-160M-Chat model to prevent token generation leakage
-                val systemMessage = "You are Kairo, a helpful offline assistant. Answer the user's question directly and concisely."
-                val prompt = "<|im_start|>system\n$systemMessage<|im_end|>\n<|im_start|>user\n$transcript<|im_end|>\n<|im_start|>assistant\n"
+                // Strict, direct system message for the Llama-3.2-1B model to enforce factual brevity
+                val systemMessage = "You are Kairo, a direct and factual assistant. Answer the question in 1 short sentence. No storytelling. No extra details."
+                // Use standard Llama-3/Llama-3.2 Instruct prompt template tags
+                val prompt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n$systemMessage<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n$transcript<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
                 val responseBuilder = StringBuilder()
                 
                 Log.d(TAG, "Running inference on dedicated thread...")
 
                 var stopSignalled = false
+                var tokenCount = 0
                 model.generateStream(prompt)
                     .flowOn(llmDispatcher)
                     .collect { token ->
                         if (!stopSignalled) {
                             responseBuilder.append(token)
+                            tokenCount++
+                            
                             val currentText = responseBuilder.toString()
-                            if (currentText.contains("<|im_end|>") || 
-                                currentText.contains("<|im_start|>") || 
+                            if (currentText.contains("<|eot_id|>") || 
+                                currentText.contains("<|begin_of_text|>") || 
                                 currentText.contains("User:") || 
-                                currentText.contains("Assistant:")) {
+                                currentText.contains("Assistant:") ||
+                                tokenCount >= 45) { // Limit to 45 tokens max to block wordy storytelling loops
                                 stopSignalled = true
                             }
                         }
                     }
                 
                 var rawOutput = responseBuilder.toString().trim()
-                // Clean any leftover ChatML tags or turn indicators
+                // Clean any leftover Llama-3 special tags or turn indicators
                 rawOutput = rawOutput
-                    .replace("<|im_end|>", "")
-                    .replace("<|im_start|>", "")
+                    .replace("<|eot_id|>", "")
+                    .replace("<|begin_of_text|>", "")
+                    .replace("<|start_header_id|>", "")
+                    .replace("<|end_header_id|>", "")
                     .replace("assistant", "")
                     .replace("user", "")
                     .replace("system", "")

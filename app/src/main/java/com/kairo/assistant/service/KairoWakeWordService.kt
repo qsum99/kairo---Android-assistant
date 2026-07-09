@@ -208,35 +208,37 @@ class KairoWakeWordService : Service() {
             putExtra("start_listening_auto", true)
         }
 
-        val prefs = getSharedPreferences("kairo_prefs", MODE_PRIVATE)
-        val allowOnLockScreen = prefs.getBoolean("allow_on_lock_screen", false)
+        // 1. Try to launch activity directly (bypasses notification if screen is unlocked or app is default assistant)
+        try {
+            startActivity(intent)
+            Log.d("KairoWakeWordService", "Successfully launched assistant activity directly")
+        } catch (e: Exception) {
+            Log.w("KairoWakeWordService", "Direct startActivity failed (Android background launch limit). Relying on notification fallback.", e)
+        }
 
-        if (allowOnLockScreen) {
-            val pendingIntent = PendingIntent.getActivity(
-                this,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+        // 2. Fire high-priority notification with full-screen intent to ensure it triggers (on lockscreen or background fallback)
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
-            val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                .setContentTitle("Kairo Voice Assistant")
-                .setContentText("Kairo is activated")
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setFullScreenIntent(pendingIntent, true)
-                .setAutoCancel(true)
-                .build()
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setContentTitle("Kairo Voice Assistant")
+            .setContentText("Kairo is activated")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setFullScreenIntent(pendingIntent, true)
+            .setAutoCancel(true)
+            .build()
 
-            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        try {
             notificationManager.notify(WAKEUP_NOTIFICATION_ID, notification)
-        } else {
-            try {
-                startActivity(intent)
-            } catch (e: Exception) {
-                Log.e("KairoWakeWordService", "Failed to start activity directly", e)
-            }
+        } catch (e: Exception) {
+            Log.e("KairoWakeWordService", "Failed to post wakeup notification", e)
         }
     }
 
@@ -251,6 +253,33 @@ class KairoWakeWordService : Service() {
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
+        }
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.i("KairoWakeWordService", "App task removed. Scheduling wake word service restart...")
+        
+        // Re-start the service via alarm manager so it survives swiping the app out of recents
+        val restartIntent = Intent(applicationContext, this.javaClass).apply {
+            setPackage(packageName)
+        }
+        val pendingIntent = PendingIntent.getService(
+            this,
+            999,
+            restartIntent,
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        try {
+            alarmManager.set(
+                android.app.AlarmManager.RTC,
+                System.currentTimeMillis() + 1000,
+                pendingIntent
+            )
+        } catch (e: Exception) {
+            Log.e("KairoWakeWordService", "Failed to schedule service restart on task removal", e)
         }
     }
 
