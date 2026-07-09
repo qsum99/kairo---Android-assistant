@@ -210,8 +210,8 @@ object LlamaEngine {
 
         return@withLock withContext(llmDispatcher) {
             try {
-                val systemPrompt = "You are Kairo, a device action classifier. Choose from these intents: CALL, SMS, ALARM, WIFI, BLUETOOTH, INTERNET, AIRPLANE_MODE, SETTINGS, LOCK_DEVICE, TORCH, GOOGLE_SEARCH, BING_SEARCH. Output JSON only, e.g.:\n{\"type\":\"DEVICE_ACTION\",\"intent\":\"WIFI\",\"slots\":{\"state\":\"on\"}}\nor for chat:\n{\"type\":\"CONVERSATION\",\"response\":\"hello\"}"
-                val prompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$transcript<|im_end|>\n<|im_start|>assistant\n"
+                // Use a simple prompt structure for the small model to maximize speed and reliability
+                val prompt = "User: $transcript\nAssistant:"
                 val responseBuilder = StringBuilder()
                 
                 Log.d(TAG, "Running inference on dedicated thread...")
@@ -226,7 +226,7 @@ object LlamaEngine {
                 Log.d(TAG, "LLM response: $rawOutput")
 
                 if (rawOutput.isEmpty()) {
-                    return@withContext ParsedCommand(IntentType.CONVERSATION, null, "...", 0.5f)
+                    return@withContext ParsedCommand(IntentType.CONVERSATION, null, "I hear you, but the offline model returned an empty response.", 0.5f)
                 }
 
                 parseLlmResponse(rawOutput, transcript)
@@ -305,7 +305,7 @@ object LlamaEngine {
 
             // Try to salvage something from the raw text as a conversational response
             val cleaned = raw.replace(Regex("[{}\\[\\]\"]"), "").trim()
-            if (cleaned.length > 5) {
+            if (cleaned.isNotBlank() && cleaned != "...") {
                 return ParsedCommand(
                     intent = IntentType.CONVERSATION,
                     target = null,
@@ -314,11 +314,12 @@ object LlamaEngine {
                 )
             }
 
+            // Return a friendly conversational fallback instead of the generic UNKNOWN action warning
             return ParsedCommand(
-                intent = IntentType.UNKNOWN,
+                intent = IntentType.CONVERSATION,
                 target = null,
-                extra = originalText,
-                confidence = 0.0f
+                extra = "I hear you, but the offline model didn't return an answer. Please try again.",
+                confidence = 0.4f
             )
         }
     }
