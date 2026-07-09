@@ -52,8 +52,26 @@ class KairoTTS(context: Context) {
             val utteranceId = UUID.randomUUID().toString()
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
         } else {
-            // Callback immediately if not ready
-            onDone()
+            Log.d("KairoTTS", "TTS not ready yet. Retrying in background...")
+            val startTime = System.currentTimeMillis()
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            
+            val checkRunnable = object : Runnable {
+                override fun run() {
+                    if (isReady) {
+                        Log.d("KairoTTS", "TTS became ready. Speaking response.")
+                        onUtteranceDoneListener = onDone
+                        val utteranceId = UUID.randomUUID().toString()
+                        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+                    } else if (System.currentTimeMillis() - startTime < 3000) {
+                        handler.postDelayed(this, 150)
+                    } else {
+                        Log.w("KairoTTS", "TTS failed to become ready after 3 seconds. Skipping speech.")
+                        onDone()
+                    }
+                }
+            }
+            handler.post(checkRunnable)
         }
     }
 
