@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
 object LlamaEngine {
 
     private const val TAG = "LlamaEngine"
-    private const val MODEL_FILENAME = "kairo_model_v5.gguf"
+    private const val MODEL_FILENAME = "kairo_model_v6.gguf"
 
     // Dedicated single thread to prevent JNI threading crashes (SIGSEGV)
     private val llmDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
@@ -64,7 +64,7 @@ object LlamaEngine {
                 if (tempFile.exists()) tempFile.delete()
 
                 Log.i(TAG, "Starting model download...")
-                val url = java.net.URL("https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q2_K.gguf")
+                val url = java.net.URL("https://huggingface.co/afrideva/Llama-160M-Chat-v1-GGUF/resolve/main/llama-160m-chat-v1.q8_0.gguf")
                 val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.connectTimeout = 30000
                 connection.readTimeout = 30000
@@ -159,6 +159,11 @@ object LlamaEngine {
                     oldModelFile4.delete()
                     Log.i(TAG, "Deleted old v4 model file (kairo_model_v4.gguf)")
                 }
+                val oldModelFile5 = java.io.File(context.filesDir, "kairo_model_v5.gguf")
+                if (oldModelFile5.exists()) {
+                    oldModelFile5.delete()
+                    Log.i(TAG, "Deleted old v5 model file (kairo_model_v5.gguf)")
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to clean up old model files", e)
             }
@@ -205,7 +210,8 @@ object LlamaEngine {
 
         return@withLock withContext(llmDispatcher) {
             try {
-                val prompt = "User: $transcript\nAssistant:"
+                val systemPrompt = "You are Kairo, a device action classifier. Choose from these intents: CALL, SMS, ALARM, WIFI, BLUETOOTH, INTERNET, AIRPLANE_MODE, SETTINGS, LOCK_DEVICE, TORCH, GOOGLE_SEARCH, BING_SEARCH. Output JSON only, e.g.:\n{\"type\":\"DEVICE_ACTION\",\"intent\":\"WIFI\",\"slots\":{\"state\":\"on\"}}\nor for chat:\n{\"type\":\"CONVERSATION\",\"response\":\"hello\"}"
+                val prompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$transcript<|im_end|>\n<|im_start|>assistant\n"
                 val responseBuilder = StringBuilder()
                 
                 Log.d(TAG, "Running inference on dedicated thread...")

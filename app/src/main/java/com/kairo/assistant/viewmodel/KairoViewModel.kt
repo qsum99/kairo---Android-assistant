@@ -674,7 +674,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.update {
             it.copy(
-                status = if (isImmediateExitIntent) AssistantStatus.IDLE else AssistantStatus.SPEAKING,
+                status = AssistantStatus.SPEAKING,
                 response = result.message,
                 conversationHistory = it.conversationHistory + listOf(
                     ConversationItem(isUser = true, text = userText),
@@ -684,18 +684,48 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (isImmediateExitIntent) {
-            _uiState.update { it.copy(shouldExit = true) }
+            viewModelScope.launch(Dispatchers.Main) {
+                tts.speak(result.message) {
+                    viewModelScope.launch(Dispatchers.Main) {
+                        _uiState.update {
+                            if (it.status == AssistantStatus.SPEAKING) {
+                                it.copy(status = AssistantStatus.IDLE, shouldExit = true)
+                            } else it
+                        }
+                    }
+                }
+            }
         } else {
             viewModelScope.launch(Dispatchers.Main) {
-                tts.speak(result.message)
-            }
+                var speechCompleted = false
+                var minTimeElapsed = false
 
-            viewModelScope.launch(Dispatchers.IO) {
-                kotlinx.coroutines.delay(2500)
-                _uiState.update {
-                    if (it.status == AssistantStatus.SPEAKING) {
-                        it.copy(status = AssistantStatus.IDLE, shouldExit = true)
-                    } else it
+                val triggerExit = {
+                    if (speechCompleted && minTimeElapsed) {
+                        _uiState.update {
+                            if (it.status == AssistantStatus.SPEAKING) {
+                                it.copy(status = AssistantStatus.IDLE, shouldExit = true)
+                            } else it
+                        }
+                    }
+                }
+
+                // Minimum screen display duration of 3 seconds to allow reading
+                viewModelScope.launch(Dispatchers.IO) {
+                    kotlinx.coroutines.delay(3000)
+                    minTimeElapsed = true
+                    viewModelScope.launch(Dispatchers.Main) {
+                        triggerExit()
+                    }
+                }
+
+                // Speak and wait for speech completion + 1 second post-speech buffer
+                tts.speak(result.message) {
+                    viewModelScope.launch(Dispatchers.Main) {
+                        kotlinx.coroutines.delay(1000)
+                        speechCompleted = true
+                        triggerExit()
+                    }
                 }
             }
         }
