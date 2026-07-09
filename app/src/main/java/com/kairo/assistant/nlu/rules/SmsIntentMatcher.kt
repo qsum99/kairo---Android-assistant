@@ -19,21 +19,27 @@ class SmsIntentMatcher(
     override val intentType: IntentType = IntentType.SEND_SMS
 
     companion object {
-        // "text/message X saying/that Y"
-        private val SIMPLE_PATTERN = Regex(
-            """(?:text|message)\s+(.+?)\s+(?:saying|that\s+says?|that)\s+(.+)""",
-            RegexOption.IGNORE_CASE
-        )
-
-        // "send X a message/text saying/with the message Y"
-        private val SEND_PATTERN = Regex(
-            """send\s+(.+?)\s+(?:a\s+)?(?:message|text|sms)\s+(?:saying|that\s+says?|that|with\s+the\s+message)\s+(.+)""",
-            RegexOption.IGNORE_CASE
-        )
-
-        // "send a text/message to X saying/with the message Y"
+        // "send a text/message/sms to X saying/with the message Y"
         private val SEND_TO_PATTERN = Regex(
-            """send\s+(?:a\s+)?(?:message|text|sms)\s+to\s+(.+?)\s+(?:saying|that\s+says?|that|with\s+the\s+message)\s+(.+)""",
+            """send\s+(?:an?\s+)?(?:message|text|sms)\s+to\s+(.+?)\s+(?:saying|that\s+says?|that|with\s+the\s+message)\s+(.+)""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // "send X a message/text/sms saying/with the message Y"
+        private val SEND_PATTERN = Regex(
+            """send\s+(.+?)\s+(?:an?\s+)?(?:message|text|sms)\s+(?:saying|that\s+says?|that|with\s+the\s+message)\s+(.+)""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // "text/message/sms/ping/write to X saying/that Y"
+        private val SIMPLE_PATTERN = Regex(
+            """(?:text|message|sms|ping|write(?:\s+to)?)\s+(.+?)\s+(?:saying|that\s+says?|that)\s+(.+)""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // "write a text/message to X saying Y"
+        private val WRITE_TO_PATTERN = Regex(
+            """write\s+(?:an?\s+)?(?:text|message|sms)\s+to\s+(.+?)\s+(?:saying|that\s+says?|that)\s+(.+)""",
             RegexOption.IGNORE_CASE
         )
     }
@@ -77,7 +83,7 @@ class SmsIntentMatcher(
 
     private fun extractNameAndBody(input: String): Pair<String, String>? {
         // Try each pattern in order of specificity
-        for (pattern in listOf(SEND_TO_PATTERN, SEND_PATTERN, SIMPLE_PATTERN)) {
+        for (pattern in listOf(SEND_TO_PATTERN, SEND_PATTERN, WRITE_TO_PATTERN, SIMPLE_PATTERN)) {
             val match = pattern.find(input)
             if (match != null) {
                 val name = match.groupValues[1].trim()

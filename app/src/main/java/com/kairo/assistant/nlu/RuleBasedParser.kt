@@ -16,6 +16,7 @@ import com.kairo.assistant.nlu.rules.TorchIntentMatcher
 import com.kairo.assistant.nlu.rules.LockDeviceIntentMatcher
 import com.kairo.assistant.nlu.rules.WifiIntentMatcher
 import com.kairo.assistant.nlu.rules.InternetIntentMatcher
+import com.kairo.assistant.nlu.rules.GreetingIntentMatcher
 import com.kairo.assistant.nlu.rules.AirplaneModeIntentMatcher
 
 /**
@@ -28,6 +29,7 @@ class RuleBasedParser(
 ) {
 
     private val matchers: List<IntentMatcher> = listOf(
+        GreetingIntentMatcher(),
         GoogleSearchIntentMatcher(),
         BingSearchIntentMatcher(),
         TorchIntentMatcher(),

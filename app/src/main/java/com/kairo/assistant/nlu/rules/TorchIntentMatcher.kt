@@ -10,7 +10,7 @@ class TorchIntentMatcher : IntentMatcher {
 
     companion object {
         private val PATTERN = Regex(
-            """(?:\b(?:turn\s+|switch\s+)?(?:on|off|enable|disable|toggle|activate|deactivate)\b.*\b(?:torch|flashlight|flash\s*light)\b)|\b(?:torch|flashlight|flash\s*light)\b.*\b(?:on|off|enable|disable|toggle|activate|deactivate)\b""",
+            """(?:\b(?:turn\s+|switch\s+)?(?:on|off|enable|disable|toggle|activate|deactivate|start|stop)\b.*\b(?:torch|flashlight|flash\s*light|light|flash)\b)|\b(?:torch|flashlight|flash\s*light|light|flash)\b.*\b(?:on|off|enable|disable|toggle|activate|deactivate|start|stop)\b""",
             RegexOption.IGNORE_CASE
         )
     }

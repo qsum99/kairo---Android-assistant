@@ -12,13 +12,20 @@ object FuzzyMatch {
      * Returns a normalized similarity score between two strings (0.0 = no match, 1.0 = exact match).
      */
     fun similarity(a: String, b: String): Float {
-        val lowerA = a.lowercase().trim()
-        val lowerB = b.lowercase().trim()
-        if (lowerA == lowerB) return 1.0f
-        val maxLen = max(lowerA.length, lowerB.length)
+        val cleanA = cleanString(a)
+        val cleanB = cleanString(b)
+        if (cleanA == cleanB) return 1.0f
+        val maxLen = max(cleanA.length, cleanB.length)
         if (maxLen == 0) return 1.0f
-        val distance = levenshtein(lowerA, lowerB)
+        val distance = levenshtein(cleanA, cleanB)
         return 1.0f - (distance.toFloat() / maxLen.toFloat())
+    }
+
+    private fun cleanString(text: String): String {
+        return text.replace(Regex("[^\\p{L}\\p{N}\\s]"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .lowercase()
     }
 
     /**

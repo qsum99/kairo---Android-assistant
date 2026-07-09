@@ -17,25 +17,26 @@ class CallIntentMatcher(
     override val intentType: IntentType = IntentType.CALL
 
     companion object {
-        // "call/ring/phone/dial X"
-        private val DIRECT_PATTERN = Regex(
-            """(?:call|ring|phone|dial)\s+(.+)""",
-            RegexOption.IGNORE_CASE
-        )
-
-        // "give X a call/ring"
-        private val GIVE_PATTERN = Regex(
-            """give\s+(.+?)\s+a\s+(?:call|ring)""",
-            RegexOption.IGNORE_CASE
+        private val PATTERNS = listOf(
+            Regex("""\b(?:call|ring|phone|dial|contact|phone\s+up)\s+(.+)""", RegexOption.IGNORE_CASE),
+            Regex("""give\s+(.+?)\s+a\s+(?:call|ring)""", RegexOption.IGNORE_CASE),
+            Regex("""(?:make|place)\s+(?:a\s+)?call\s+to\s+(.+)""", RegexOption.IGNORE_CASE),
+            Regex("""(?:connect\s+me\s+to|get\s+in\s+touch\s+with)\s+(.+)""", RegexOption.IGNORE_CASE)
         )
     }
 
     override fun tryMatch(transcript: String): ParsedCommand? {
         val input = transcript.trim()
 
-        val spokenName = DIRECT_PATTERN.find(input)?.groupValues?.get(1)?.trim()
-            ?: GIVE_PATTERN.find(input)?.groupValues?.get(1)?.trim()
-            ?: return null
+        var spokenName: String? = null
+        for (pattern in PATTERNS) {
+            val match = pattern.find(input)
+            if (match != null) {
+                spokenName = match.groupValues[1].trim()
+                break
+            }
+        }
+        if (spokenName == null || spokenName.isEmpty()) return null
 
         val matches = contactResolver.resolveMultiple(spokenName)
 

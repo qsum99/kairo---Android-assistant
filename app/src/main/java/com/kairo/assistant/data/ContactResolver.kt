@@ -64,8 +64,12 @@ class ContactResolver(private val context: Context? = null) {
             }
         }
 
-        // Exact/Character match check first: if the spoken name matches any contact exactly, return only that match.
-        val exactMatches = contactNames.filter { it.first.trim().equals(spokenName.trim(), ignoreCase = true) }
+        // Exact/Character match check first (ignoring emojis/symbols)
+        val cleanSpokenForCompare = spokenName.replace(Regex("[^\\p{L}\\p{N}\\s]"), "").replace(Regex("\\s+"), " ").trim().lowercase()
+        val exactMatches = contactNames.filter { 
+            val cleanContactName = it.first.replace(Regex("[^\\p{L}\\p{N}\\s]"), "").replace(Regex("\\s+"), " ").trim().lowercase()
+            cleanContactName == cleanSpokenForCompare
+        }
         if (exactMatches.isNotEmpty()) {
             return exactMatches.distinctBy { it.first }
         }

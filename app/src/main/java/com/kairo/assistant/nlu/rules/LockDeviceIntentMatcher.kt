@@ -10,7 +10,7 @@ class LockDeviceIntentMatcher : IntentMatcher {
 
     companion object {
         private val PATTERN = Regex(
-            """\b(?:lock|secure)\s+(?:the\s+|my\s+)?(?:screen|device|phone)\b""",
+            """\b(?:lock|secure|lock\s+up|turn\s+off|shut\s+down|sleep|put\s+to\s+sleep)\s+(?:the\s+|my\s+)?(?:screen|device|phone)\b""",
             RegexOption.IGNORE_CASE
         )
     }

@@ -17,9 +17,8 @@ class OpenAppIntentMatcher(
     override val intentType: IntentType = IntentType.OPEN_APP
 
     companion object {
-        // "open/launch/start/run X" or "fire up X"
         private val PATTERN = Regex(
-            """(?:open|launch|start|run|fire\s+up)\s+(.+)""",
+            """\b(?:open|open\s+up|launch|launch\s+up|start|start\s+up|run|fire\s+up|load|load\s+up|bring\s+up|go\s+to|show)\s+(.+)""",
             RegexOption.IGNORE_CASE
         )
     }
