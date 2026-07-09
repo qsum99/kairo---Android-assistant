@@ -210,6 +210,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun startListening() {
+        tts.stop() // Silence active voice feedback immediately before activating microphone
         _uiState.update {
             it.copy(
                 status = AssistantStatus.LISTENING,

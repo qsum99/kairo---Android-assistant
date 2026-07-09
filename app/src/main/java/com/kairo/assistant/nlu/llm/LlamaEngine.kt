@@ -185,6 +185,7 @@ object LlamaEngine {
                     batchSize = 512
                     threads = 2
                     gpuLayers = 0
+                    temperature = 0.7f
                 }
 
                 llamaModel = model

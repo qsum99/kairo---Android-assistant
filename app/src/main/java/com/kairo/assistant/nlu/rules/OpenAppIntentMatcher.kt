@@ -28,7 +28,15 @@ class OpenAppIntentMatcher(
         val input = transcript.trim()
 
         val match = PATTERN.find(input) ?: return null
-        val spokenApp = match.groupValues[1].trim()
+        var spokenApp = match.groupValues[1].trim()
+        if (spokenApp.isEmpty()) return null
+
+        // Clean up common filler words in app launching requests
+        spokenApp = spokenApp
+            .replace(Regex("""^(?:the\s+|my\s+|our\s+|a\s+)""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""(?:\s+app|\s+application)$""", RegexOption.IGNORE_CASE), "")
+            .trim()
+
         if (spokenApp.isEmpty()) return null
 
         val resolved = appResolver.resolve(spokenApp)

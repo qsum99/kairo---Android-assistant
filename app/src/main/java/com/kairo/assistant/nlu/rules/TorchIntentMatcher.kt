@@ -10,16 +10,18 @@ class TorchIntentMatcher : IntentMatcher {
 
     companion object {
         private val PATTERN = Regex(
-            """^(?:turn\s+)?(?:on|off|enable|disable)\s+(?:the\s+)?(?:torch|flashlight)$|^(?:torch|flashlight)\s+(?:on|off)$""",
+            """(?:\b(?:turn\s+|switch\s+)?(?:on|off|enable|disable|toggle|activate|deactivate)\b.*\b(?:torch|flashlight|flash\s*light)\b)|\b(?:torch|flashlight|flash\s*light)\b.*\b(?:on|off|enable|disable|toggle|activate|deactivate)\b""",
             RegexOption.IGNORE_CASE
         )
     }
 
     override fun tryMatch(transcript: String): ParsedCommand? {
-        val input = transcript.trim().lowercase()
-        if (!PATTERN.matches(input)) return null
+        val input = transcript.trim()
+        val match = PATTERN.find(input) ?: return null
 
-        val action = if (input.contains("on") || input.contains("enable")) "on" else "off"
+        val action = if (input.contains("off", ignoreCase = true) || 
+            input.contains("disable", ignoreCase = true) || 
+            input.contains("deactivate", ignoreCase = true)) "off" else "on"
 
         return ParsedCommand(
             intent = intentType,

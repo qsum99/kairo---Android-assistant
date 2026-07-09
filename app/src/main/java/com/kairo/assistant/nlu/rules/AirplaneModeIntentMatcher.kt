@@ -10,7 +10,7 @@ class AirplaneModeIntentMatcher : IntentMatcher {
 
     companion object {
         private val PATTERN = Regex(
-            """(?:turn\s+on|turn\s+off|enable|disable|toggle)\s+(?:airplane|aeroplane)\s+mode""",
+            """(?:\b(?:turn\s+|switch\s+)?(?:on|off|enable|disable|toggle|activate|deactivate)\b.*\b(?:airplane|aeroplane)\s+mode\b)|\b(?:airplane|aeroplane)\s+mode\b.*\b(?:on|off|enable|disable|toggle|activate|deactivate)\b""",
             RegexOption.IGNORE_CASE
         )
     }
@@ -20,8 +20,14 @@ class AirplaneModeIntentMatcher : IntentMatcher {
         val match = PATTERN.find(input) ?: return null
 
         val action = when {
-            input.contains("on", ignoreCase = true) || input.contains("enable", ignoreCase = true) -> "on"
-            input.contains("off", ignoreCase = true) || input.contains("disable", ignoreCase = true) -> "off"
+            input.contains("on", ignoreCase = true) || 
+            input.contains("enable", ignoreCase = true) ||
+            input.contains("activate", ignoreCase = true) -> "on"
+            
+            input.contains("off", ignoreCase = true) || 
+            input.contains("disable", ignoreCase = true) ||
+            input.contains("deactivate", ignoreCase = true) -> "off"
+            
             else -> "toggle"
         }
 
@@ -29,7 +35,7 @@ class AirplaneModeIntentMatcher : IntentMatcher {
             intent = intentType,
             target = action,
             extra = null,
-            confidence = 0.9f
+            confidence = 0.95f
         )
     }
 }

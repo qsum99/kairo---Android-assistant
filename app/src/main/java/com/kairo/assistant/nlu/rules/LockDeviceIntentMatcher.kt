@@ -10,14 +10,14 @@ class LockDeviceIntentMatcher : IntentMatcher {
 
     companion object {
         private val PATTERN = Regex(
-            """^(?:lock\s+)(?:the\s+|my\s+)?(?:screen|device|phone)$""",
+            """\b(?:lock|secure)\s+(?:the\s+|my\s+)?(?:screen|device|phone)\b""",
             RegexOption.IGNORE_CASE
         )
     }
 
     override fun tryMatch(transcript: String): ParsedCommand? {
-        val input = transcript.trim().lowercase()
-        if (!PATTERN.matches(input)) return null
+        val input = transcript.trim()
+        PATTERN.find(input) ?: return null
 
         return ParsedCommand(
             intent = intentType,

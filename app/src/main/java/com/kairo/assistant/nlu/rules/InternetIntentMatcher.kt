@@ -10,7 +10,7 @@ class InternetIntentMatcher : IntentMatcher {
 
     companion object {
         private val PATTERN = Regex(
-            """(?:turn\s+on|turn\s+off|enable|disable|toggle)\s+(?:mobile\s+data|data|internet)""",
+            """(?:\b(?:turn\s+|switch\s+)?(?:on|off|enable|disable|toggle|activate|deactivate)\b.*\b(?:mobile\s+data|data|internet)\b)|\b(?:mobile\s+data|data|internet)\b.*\b(?:on|off|enable|disable|toggle|activate|deactivate)\b""",
             RegexOption.IGNORE_CASE
         )
     }
@@ -20,8 +20,14 @@ class InternetIntentMatcher : IntentMatcher {
         val match = PATTERN.find(input) ?: return null
 
         val action = when {
-            input.contains("on", ignoreCase = true) || input.contains("enable", ignoreCase = true) -> "on"
-            input.contains("off", ignoreCase = true) || input.contains("disable", ignoreCase = true) -> "off"
+            input.contains("on", ignoreCase = true) || 
+            input.contains("enable", ignoreCase = true) ||
+            input.contains("activate", ignoreCase = true) -> "on"
+            
+            input.contains("off", ignoreCase = true) || 
+            input.contains("disable", ignoreCase = true) ||
+            input.contains("deactivate", ignoreCase = true) -> "off"
+            
             else -> "toggle"
         }
 
@@ -29,7 +35,7 @@ class InternetIntentMatcher : IntentMatcher {
             intent = intentType,
             target = action,
             extra = null,
-            confidence = 0.9f
+            confidence = 0.95f
         )
     }
 }

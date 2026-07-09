@@ -10,7 +10,7 @@ class SettingsIntentMatcher : IntentMatcher {
 
     companion object {
         private val PATTERN = Regex(
-            """(?:open|go\s+to|launch|show)\s+settings""",
+            """\b(?:open|go\s+to|launch|show|start|access)\s+(?:the\s+|my\s+)?(?:settings|system\s+settings)\b|^(?:settings|system\s+settings)$""",
             RegexOption.IGNORE_CASE
         )
     }

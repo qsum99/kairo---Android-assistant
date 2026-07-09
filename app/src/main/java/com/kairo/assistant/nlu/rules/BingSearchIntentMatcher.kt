@@ -9,22 +9,32 @@ class BingSearchIntentMatcher : IntentMatcher {
     override val intentType: IntentType = IntentType.BING_SEARCH
 
     companion object {
-        private val PATTERN = Regex(
-            """^bing(?:\s+(.+))?$""",
-            RegexOption.IGNORE_CASE
+        private val PATTERNS = listOf(
+            Regex("""^bing\s+(.+)""", RegexOption.IGNORE_CASE),
+            Regex("""^search\s+bing\s+(?:for\s+)?(.+)""", RegexOption.IGNORE_CASE),
+            Regex("""^search\s+(?:for\s+)?(.+?)\s+on\s+bing""", RegexOption.IGNORE_CASE),
+            Regex("""^search\s+(?:for\s+)?(.+?)\s+bing""", RegexOption.IGNORE_CASE)
         )
     }
 
     override fun tryMatch(transcript: String): ParsedCommand? {
         val input = transcript.trim()
-        val match = PATTERN.find(input) ?: return null
-        val query = match.groupValues.getOrNull(1)?.trim() ?: ""
+        
+        for (pattern in PATTERNS) {
+            val match = pattern.find(input)
+            if (match != null) {
+                val query = match.groupValues[1].trim()
+                if (query.isNotEmpty()) {
+                    return ParsedCommand(
+                        intent = intentType,
+                        target = query,
+                        extra = query,
+                        confidence = 0.95f
+                    )
+                }
+            }
+        }
 
-        return ParsedCommand(
-            intent = intentType,
-            target = query,
-            extra = query,
-            confidence = 0.95f
-        )
+        return null
     }
 }

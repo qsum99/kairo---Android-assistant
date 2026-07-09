@@ -18,7 +18,7 @@ class AlarmIntentMatcher : IntentMatcher {
     companion object {
         // "set (an) alarm for HH:MM am/pm" or "wake me up at HH:MM am/pm"
         private val PATTERN = Regex(
-            """(?:set\s+(?:an?\s+)?alarm\s+(?:for|at)|wake\s+me\s+up\s+(?:at|for))\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?""",
+            """(?:set\s+(?:an?\s+)?alarm\s+(?:for|at|to)|wake\s+me\s+up\s+(?:at|for|to)|alarm\s+(?:for|at|to))\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?""",
             RegexOption.IGNORE_CASE
         )
     }
