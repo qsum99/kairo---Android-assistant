@@ -210,19 +210,39 @@ object LlamaEngine {
 
         return@withLock withContext(llmDispatcher) {
             try {
-                // Use a simple prompt structure for the small model to maximize speed and reliability
-                val prompt = "User: $transcript\nAssistant:"
+                // Proper ChatML format for the Llama-160M-Chat model to prevent token generation leakage
+                val systemMessage = "You are Kairo, a helpful offline assistant. Answer the user's question directly and concisely."
+                val prompt = "<|im_start|>system\n$systemMessage<|im_end|>\n<|im_start|>user\n$transcript<|im_end|>\n<|im_start|>assistant\n"
                 val responseBuilder = StringBuilder()
                 
                 Log.d(TAG, "Running inference on dedicated thread...")
 
+                var stopSignalled = false
                 model.generateStream(prompt)
                     .flowOn(llmDispatcher)
                     .collect { token ->
-                        responseBuilder.append(token)
+                        if (!stopSignalled) {
+                            responseBuilder.append(token)
+                            val currentText = responseBuilder.toString()
+                            if (currentText.contains("<|im_end|>") || 
+                                currentText.contains("<|im_start|>") || 
+                                currentText.contains("User:") || 
+                                currentText.contains("Assistant:")) {
+                                stopSignalled = true
+                            }
+                        }
                     }
                 
-                val rawOutput = responseBuilder.toString().trim()
+                var rawOutput = responseBuilder.toString().trim()
+                // Clean any leftover ChatML tags or turn indicators
+                rawOutput = rawOutput
+                    .replace("<|im_end|>", "")
+                    .replace("<|im_start|>", "")
+                    .replace("assistant", "")
+                    .replace("user", "")
+                    .replace("system", "")
+                    .trim()
+                
                 Log.d(TAG, "LLM response: $rawOutput")
 
                 if (rawOutput.isEmpty()) {
