@@ -454,12 +454,12 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                         logUnknownCommand(text)
                         com.kairo.assistant.actions.ActionResult(
                             success = false,
-                            message = "I'm not sure what to do with \"$text\". Try commands like \"call Mom\" or \"open WhatsApp\"."
+                            message = "I didn't recognize that request. I can help you call contacts, send SMS messages, open applications, or run offline chat queries."
                         )
                     }
                     IntentType.CONVERSATION -> {
                         // LLM generated a conversational response — speak it
-                        val response = command.extra ?: "I'm not sure how to help with that."
+                        val response = command.extra ?: "I couldn't process that query. Please try rephrasing it."
                         com.kairo.assistant.actions.ActionResult(
                             success = true,
                             message = response

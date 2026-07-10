@@ -318,7 +318,7 @@ object LlamaEngine {
                 }
 
                 "CONVERSATION" -> {
-                    val response = data.optString("response", "I'm not sure how to help with that.")
+                    val response = data.optString("response", "I couldn't process that query. Please try rephrasing it.")
                     Log.d(TAG, "-> CHAT: ${response.take(80)}")
 
                     ParsedCommand(
