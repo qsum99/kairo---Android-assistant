@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.kairo.assistant.ui.screens.HomeScreen
 import com.kairo.assistant.ui.screens.PermissionScreen
 import com.kairo.assistant.ui.screens.SettingsScreen
@@ -28,6 +29,16 @@ fun KairoApp(onExit: () -> Unit = {}) {
         if (uiState.shouldExit) {
             onExit()
             kairoViewModel.resetExitState()
+        }
+    }
+
+    // Monitor backstack destination transitions to manage speech listener lifecycle
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == "home") {
+            kairoViewModel.startListeningAutomatic()
         }
     }
 
@@ -57,6 +68,7 @@ fun KairoApp(onExit: () -> Unit = {}) {
             HomeScreen(
                 viewModel = kairoViewModel,
                 onSettingsClick = {
+                    kairoViewModel.stopListening() // Release mic when opening settings
                     navController.navigate("settings")
                 }
             )

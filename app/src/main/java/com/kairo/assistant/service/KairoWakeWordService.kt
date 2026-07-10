@@ -36,8 +36,12 @@ class KairoWakeWordService : Service() {
     private fun muteSystemSounds() {
         try {
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            originalSystemVolume = audioManager.getStreamVolume(AudioManager.STREAM_SYSTEM)
-            originalNotificationVolume = audioManager.getStreamVolume(AudioManager.STREAM_NOTIFICATION)
+            if (originalSystemVolume == -1) {
+                originalSystemVolume = audioManager.getStreamVolume(AudioManager.STREAM_SYSTEM)
+            }
+            if (originalNotificationVolume == -1) {
+                originalNotificationVolume = audioManager.getStreamVolume(AudioManager.STREAM_NOTIFICATION)
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0)
@@ -103,15 +107,28 @@ class KairoWakeWordService : Service() {
             val action = intent?.action ?: return
             Log.d("KairoWakeWordService", "Screen receiver action: $action")
             
+            val prefs = getSharedPreferences("kairo_prefs", MODE_PRIVATE)
+            val wakeWordEnabled = prefs.getBoolean("wake_word_enabled", false)
+            val allowOnLockScreen = prefs.getBoolean("allow_on_lock_screen", false)
+            
+            if (!wakeWordEnabled) {
+                stopListening()
+                return
+            }
+
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             val isLocked = keyguardManager.isKeyguardLocked
 
             when (action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    stopListening()
+                    if (allowOnLockScreen) {
+                        startListening()
+                    } else {
+                        stopListening()
+                    }
                 }
                 Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
-                    if (isLocked) {
+                    if (isLocked && !allowOnLockScreen) {
                         stopListening()
                     } else {
                         startListening()
@@ -181,7 +198,11 @@ class KairoWakeWordService : Service() {
                         }
                         // If app goes active, do not restart
                         if (!isAppActive) {
-                            startListening()
+                            val delay = when (error) {
+                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT, SpeechRecognizer.ERROR_NO_MATCH -> 100L
+                                else -> 2000L
+                            }
+                            handler.postDelayed({ startListening() }, delay)
                         }
                     }
                     override fun onResults(results: Bundle?) {
@@ -230,68 +251,6 @@ class KairoWakeWordService : Service() {
         }
     }
 
-    private var dummyAudioRecord: android.media.AudioRecord? = null
-    private var isDummyRecording = false
-    private var dummyThread: Thread? = null
-
-    private fun startDummyRecording() {
-        if (isDummyRecording) return
-        isDummyRecording = true
-        
-        dummyThread = Thread {
-            val sampleRate = 16000
-            val channelConfig = android.media.AudioFormat.CHANNEL_IN_MONO
-            val audioFormat = android.media.AudioFormat.ENCODING_PCM_16BIT
-            val bufferSize = android.media.AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-            
-            if (bufferSize <= 0) return@Thread
-            
-            try {
-                if (androidx.core.content.ContextCompat.checkSelfPermission(
-                        this,
-                        android.Manifest.permission.RECORD_AUDIO
-                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                ) {
-                    val record = android.media.AudioRecord(
-                        android.media.MediaRecorder.AudioSource.MIC,
-                        sampleRate,
-                        channelConfig,
-                        audioFormat,
-                        bufferSize
-                    )
-                    dummyAudioRecord = record
-                    record.startRecording()
-                    Log.d("KairoWakeWordService", "Started continuous background AudioRecord mic hold")
-                    
-                    val buffer = ByteArray(bufferSize)
-                    while (isDummyRecording && !isAppActive) {
-                        record.read(buffer, 0, buffer.size)
-                        Thread.sleep(100) // Sleep to minimize CPU impact
-                    }
-                    
-                    try {
-                        record.stop()
-                    } catch (e: Exception) {}
-                    try {
-                        record.release()
-                    } catch (e: Exception) {}
-                    Log.d("KairoWakeWordService", "Stopped continuous background AudioRecord mic hold")
-                }
-            } catch (e: Exception) {
-                Log.w("KairoWakeWordService", "Failed running continuous AudioRecord hold thread", e)
-            } finally {
-                dummyAudioRecord = null
-                isDummyRecording = false
-            }
-        }.apply { start() }
-    }
-
-    private fun stopDummyRecording() {
-        isDummyRecording = false
-        dummyThread?.interrupt()
-        dummyThread = null
-    }
-
     private fun startListening() {
         if (isAppActive || isListening) return
 
@@ -314,7 +273,6 @@ class KairoWakeWordService : Service() {
         
         handler.post {
             try {
-                startDummyRecording() // Hold microphone open continuously in background
                 initSpeechRecognizer()
 
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -341,7 +299,6 @@ class KairoWakeWordService : Service() {
 
     private fun stopListening() {
         unmuteSystemSounds() // Restore volume
-        stopDummyRecording() // Release background mic lock
         destroySpeechRecognizer()
     }
 

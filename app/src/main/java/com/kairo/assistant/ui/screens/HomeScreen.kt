@@ -156,6 +156,11 @@ fun HomeScreen(
     var isKeyboardMode by remember { mutableStateOf(false) }
     var keyboardText by remember { mutableStateOf("") }
 
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -168,11 +173,16 @@ fun HomeScreen(
                 (context as? Activity)?.finish()
             }
     ) {
-        // Assistant bottom overlay card
-        Card(
-            shape = RoundedCornerShape(28.dp), // Premium smooth corners
-            colors = CardDefaults.cardColors(containerColor = KairoSurface.copy(alpha = 0.85f)), // Glassmorphism backdrop opacity
-            border = BorderStroke(borderGlowWidth, borderGlowColor), // Animated state border!
+        androidx.compose.animation.AnimatedVisibility(
+            visible = isVisible,
+            enter = androidx.compose.animation.slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(durationMillis = 400, easing = androidx.compose.animation.core.EaseOutCubic)
+            ) + androidx.compose.animation.fadeIn(animationSpec = tween(durationMillis = 300)),
+            exit = androidx.compose.animation.slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(durationMillis = 300)
+            ) + androidx.compose.animation.fadeOut(animationSpec = tween(durationMillis = 200)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .widthIn(max = 480.dp) // Set maximum width limit
@@ -180,11 +190,19 @@ fun HomeScreen(
                 .padding(vertical = verticalSpace)
                 .navigationBarsPadding()
                 .imePadding()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {} // Catch clicks
         ) {
+            // Assistant bottom overlay card
+            Card(
+                shape = RoundedCornerShape(28.dp), // Premium smooth corners
+                colors = CardDefaults.cardColors(containerColor = KairoSurface.copy(alpha = 0.85f)), // Glassmorphism backdrop opacity
+                border = BorderStroke(borderGlowWidth, borderGlowColor), // Animated state border!
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {} // Catch clicks
+            ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
@@ -728,6 +746,7 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
         }
     }
 }

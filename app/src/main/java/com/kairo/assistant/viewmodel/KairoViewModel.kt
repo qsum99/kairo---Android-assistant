@@ -300,7 +300,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun stopListening() {
+    fun stopListening() {
         sttManager.stopListening()
         _uiState.update {
             it.copy(status = AssistantStatus.IDLE)
