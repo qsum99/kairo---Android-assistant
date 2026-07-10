@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Primary brand colors -->
-    <color name="kairo_bg_dark">#FF0A0E17</color>
+    <color name="kairo_bg_dark">#FF050B14</color>
     <color name="kairo_surface">#FF111827</color>
     <color name="kairo_surface_variant">#FF1E293B</color>
     <color name="kairo_primary">#FF3B82F6</color>

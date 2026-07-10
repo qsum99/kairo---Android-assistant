@@ -122,14 +122,30 @@ fun GlowingOrbVisualizer(
                 val strokeWidth = (3.dp + (i * 0.5f).dp).toPx()
                 val alpha = if (i == 0) 1.0f else 0.7f - (i * 0.15f)
 
-                // Alternate sweep gradient paths
-                val sweepBrush = Brush.sweepGradient(
-                    colors = listOf(
-                        KairoAccent.copy(alpha = alpha),
+                // Alternate sweep gradient paths (one green, one blue, one mixed)
+                val ringColors = when (i) {
+                    0 -> listOf(
+                        Color(0xFF00E676).copy(alpha = alpha), // Pure Neon Green
+                        Color(0xFF00C853).copy(alpha = alpha * 0.5f),
+                        Color(0xFFB9F6CA).copy(alpha = alpha),
+                        Color(0xFF00E676).copy(alpha = alpha)
+                    )
+                    1 -> listOf(
+                        Color(0xFF00D2FF).copy(alpha = alpha), // Electric Cyan-Blue
+                        Color(0xFF0091EA).copy(alpha = alpha * 0.5f),
+                        Color(0xFF80D8FF).copy(alpha = alpha),
+                        Color(0xFF00D2FF).copy(alpha = alpha)
+                    )
+                    else -> listOf(
+                        KairoAccent.copy(alpha = alpha), // Mixed Cyan-Teal
                         KairoPrimary.copy(alpha = alpha * 0.5f),
                         KairoAccentGlow.copy(alpha = alpha),
                         KairoAccent.copy(alpha = alpha)
-                    ),
+                    )
+                }
+
+                val sweepBrush = Brush.sweepGradient(
+                    colors = ringColors,
                     center = center
                 )
 

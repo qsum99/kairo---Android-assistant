@@ -77,8 +77,7 @@ fun SettingsScreen(
     var wakeWordEnabled by remember { mutableStateOf(prefs.getBoolean("wake_word_enabled", false)) }
     var allowOnLockScreen by remember { mutableStateOf(prefs.getBoolean("allow_on_lock_screen", false)) }
     
-    var showLogDialog by remember { mutableStateOf(false) }
-    var logText by remember { mutableStateOf("") }
+
 
     val notificationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -375,70 +374,7 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Debug Logs Button
-            Button(
-                onClick = {
-                    logText = getLogcatLogs(context)
-                    showLogDialog = true
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = KairoSurface),
-                modifier = Modifier.fillMaxWidth()
-                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("View Debug logs", color = KairoOnSurface)
-            }
-
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
-
-    if (showLogDialog) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showLogDialog = false },
-            title = { Text("System Debug logs", color = KairoOnSurface) },
-            text = {
-                Column {
-                    Box(
-                        modifier = Modifier.height(300.dp)
-                            .verticalScroll(rememberScrollState())
-                            .background(KairoDarkBg)
-                            .padding(8.dp)
-                    ) {
-                        Text(
-                            text = logText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = KairoOnSurfaceVariant
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = { showLogDialog = false }) {
-                    Text("Close")
-                }
-            },
-            containerColor = KairoSurface
-        )
-    }
-}
-
-fun getLogcatLogs(context: Context): String {
-    return try {
-        val process = Runtime.getRuntime().exec("logcat -d -v time")
-        val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
-        val lines = mutableListOf<String>()
-        var line: String?
-        while (reader.readLine().also { line = it } != null) {
-            if (line!!.contains("Kairo") || line!!.contains("Llama") || line!!.contains("Fatal") || line!!.contains("SIG") || line!!.contains("backtrace") || line!!.contains("DEBUG") || line!!.contains("libc")) {
-                lines.add(line!!)
-            }
-        }
-        val lastLines = if (lines.size > 200) lines.drop(lines.size - 200) else lines
-        if (lastLines.isEmpty()) "No crash/system logs found." else lastLines.joinToString("\n")
-    } catch (e: Exception) {
-        "Failed to read logs: ${e.message}"
     }
 }
