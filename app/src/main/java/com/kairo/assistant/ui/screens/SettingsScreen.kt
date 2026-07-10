@@ -156,14 +156,6 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = KairoOnSurfaceVariant
                             )
-                            if (isLowRam) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "⚠️ Not recommended for 4GB RAM devices (may cause crashes)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = KairoAccent
-                                )
-                            }
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Switch(
@@ -409,22 +401,6 @@ fun SettingsScreen(
             title = { Text("System Debug logs", color = KairoOnSurface) },
             text = {
                 Column {
-                    Button(
-                        onClick = {
-                            try {
-                                val logFile = java.io.File(context.getExternalFilesDir(null), "kairo_debug_logs.txt")
-                                logFile.writeText(logText)
-                                android.widget.Toast.makeText(context, "Saved to: " + logFile.absolutePath, android.widget.Toast.LENGTH_LONG).show()
-                            } catch (e: Exception) {
-                                android.widget.Toast.makeText(context, "Failed: " + e.message, android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = KairoPrimary),
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Save logs to File", color = KairoOnSurface)
-                    }
                     Box(
                         modifier = Modifier.height(300.dp)
                             .verticalScroll(rememberScrollState())

@@ -203,6 +203,22 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun submitQuery(queryText: String) {
+        if (queryText.isNotBlank()) {
+            tts.stop()
+            _uiState.update {
+                it.copy(
+                    transcript = queryText,
+                    response = "",
+                    status = AssistantStatus.PROCESSING
+                )
+            }
+            viewModelScope.launch(Dispatchers.Main) {
+                processTranscript(queryText)
+            }
+        }
+    }
+
     fun resetExitState() {
         _uiState.update {
             it.copy(shouldExit = false)
