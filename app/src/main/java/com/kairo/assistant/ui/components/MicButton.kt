@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
@@ -109,13 +110,13 @@ fun MicButton(
 
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier.size(160.dp)
+        modifier = modifier
     ) {
         // Outer glow rings when listening
         if (isListening) {
             Canvas(
                 modifier = Modifier
-                    .size(160.dp)
+                    .fillMaxSize(1f)
                     .scale(currentScale)
             ) {
                 // Outer glow ring
@@ -140,8 +141,8 @@ fun MicButton(
                             KairoGradientStart.copy(alpha = glowAlpha)
                         )
                     ),
-                    radius = size.width / 2f - 8.dp.toPx(),
-                    style = Stroke(width = 3.dp.toPx())
+                    radius = (size.width / 2f) * 0.85f,
+                    style = Stroke(width = size.width * 0.02f)
                 )
             }
         }
@@ -149,7 +150,7 @@ fun MicButton(
         // Processing ring
         if (isProcessing) {
             CircularProgressIndicator(
-                modifier = Modifier.size(140.dp),
+                modifier = Modifier.fillMaxSize(0.85f),
                 color = KairoAccent,
                 strokeWidth = 3.dp,
                 trackColor = KairoSurfaceVariant
@@ -160,7 +161,7 @@ fun MicButton(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(120.dp)
+                .fillMaxSize(0.75f)
                 .scale(if (isListening) currentScale else 1f)
                 .clip(CircleShape)
                 .background(
@@ -181,7 +182,7 @@ fun MicButton(
                 imageVector = if (isListening) Icons.Default.Stop else Icons.Default.Mic,
                 contentDescription = if (isListening) "Stop listening" else "Start listening",
                 tint = iconColor,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.fillMaxSize(0.4f)
             )
         }
     }

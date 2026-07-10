@@ -469,7 +469,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
 
                 Log.d(TAG, "Action result: $result")
 
-                handleActionResult(result, text)
+                handleActionResult(result, text, command.intent)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing transcript", e)
@@ -532,7 +532,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                 
                 val result = dispatcher.dispatch(finalCommand, context)
                 
-                handleActionResult(result, "Selected ${contact.first}")
+                handleActionResult(result, "Selected ${contact.first}", finalCommand.intent)
             } catch (e: Exception) {
                 Log.e(TAG, "Error executing disambiguated option", e)
                 _uiState.update {
@@ -606,7 +606,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                     confidence = 0.9f
                 )
                 val result = dispatcher.dispatch(finalCommand, context)
-                handleActionResult(result, "Selected SIM ${sim.first}")
+                handleActionResult(result, "Selected SIM ${sim.first}", finalCommand.intent)
             } catch (e: Exception) {
                 Log.e(TAG, "Error executing call after SIM selection", e)
             }
@@ -625,7 +625,11 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun handleActionResult(result: com.kairo.assistant.actions.ActionResult, userText: String) {
+    private fun handleActionResult(
+        result: com.kairo.assistant.actions.ActionResult,
+        userText: String,
+        intentType: IntentType
+    ) {
         if (!result.success && result.message.startsWith("select_sim")) {
             val parts = result.message.split("|")
             val targetName = parts.getOrNull(1) ?: ""
@@ -702,7 +706,22 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
-        if (isImmediateExitIntent) {
+        // If it is a conversational intent (LLM response), do NOT exit. Keep it open!
+        val shouldAutoExit = intentType != IntentType.CONVERSATION
+
+        if (!shouldAutoExit) {
+            viewModelScope.launch(Dispatchers.Main) {
+                tts.speak(result.message) {
+                    viewModelScope.launch(Dispatchers.Main) {
+                        _uiState.update {
+                            if (it.status == AssistantStatus.SPEAKING) {
+                                it.copy(status = AssistantStatus.IDLE)
+                            } else it
+                        }
+                    }
+                }
+            }
+        } else if (isImmediateExitIntent) {
             viewModelScope.launch(Dispatchers.Main) {
                 tts.speak(result.message) {
                     viewModelScope.launch(Dispatchers.Main) {
@@ -758,6 +777,17 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "Logged unknown command: $text")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to log unknown command", e)
+        }
+    }
+
+    fun stopSpeaking() {
+        viewModelScope.launch(Dispatchers.Main) {
+            tts.stop()
+            _uiState.update {
+                if (it.status == AssistantStatus.SPEAKING) {
+                    it.copy(status = AssistantStatus.IDLE)
+                } else it
+            }
         }
     }
 

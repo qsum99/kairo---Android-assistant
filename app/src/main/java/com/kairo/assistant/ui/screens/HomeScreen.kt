@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -40,11 +41,18 @@ import com.kairo.assistant.ui.theme.KairoGradientEnd
 import com.kairo.assistant.ui.theme.KairoGradientStart
 import com.kairo.assistant.ui.theme.KairoOnSurfaceVariant
 import com.kairo.assistant.ui.theme.KairoPrimary
+import com.kairo.assistant.ui.theme.KairoPrimaryVariant
+import com.kairo.assistant.ui.theme.KairoSuccess
+import com.kairo.assistant.ui.theme.KairoPurple
 import com.kairo.assistant.ui.theme.KairoSurface
 import com.kairo.assistant.ui.theme.KairoSurfaceVariant
 import com.kairo.assistant.ui.theme.KairoOnSurface
 import com.kairo.assistant.ui.theme.KairoError
 import com.kairo.assistant.viewmodel.KairoViewModel
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -76,6 +84,29 @@ fun HomeScreen(
     val horizontalSpace = (configuration.screenWidthDp * 0.02f).dp
     val verticalSpace = (configuration.screenHeightDp * 0.02f).dp
 
+    // Dynamic, state-aware glowing card outline border animation
+    val borderGlowColor by animateColorAsState(
+        targetValue = when (uiState.status) {
+            AssistantStatus.LISTENING -> KairoPrimary
+            AssistantStatus.PROCESSING -> KairoAccent
+            AssistantStatus.SPEAKING -> KairoSuccess
+            AssistantStatus.DISAMBIGUATING, AssistantStatus.DISAMBIGUATING_SIM -> KairoPurple
+            AssistantStatus.ERROR -> KairoError
+            else -> KairoSurfaceVariant.copy(alpha = 0.6f)
+        },
+        animationSpec = tween(400),
+        label = "border_glow_color"
+    )
+
+    val borderGlowWidth by animateDpAsState(
+        targetValue = when (uiState.status) {
+            AssistantStatus.IDLE -> 1.dp
+            else -> 1.5.dp
+        },
+        animationSpec = tween(400),
+        label = "border_glow_width"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -90,26 +121,25 @@ fun HomeScreen(
     ) {
         // Assistant bottom overlay card
         Card(
-            shape = RoundedCornerShape(24.dp), // Fully rounded corners since it is floating!
-            colors = CardDefaults.cardColors(containerColor = KairoSurface.copy(alpha = 0.6f)), // 40% translucent
-            border = BorderStroke(1.dp, KairoSurfaceVariant.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(28.dp), // Premium smooth corners
+            colors = CardDefaults.cardColors(containerColor = KairoSurface.copy(alpha = 0.85f)), // Glassmorphism backdrop opacity
+            border = BorderStroke(borderGlowWidth, borderGlowColor), // Animated state border!
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = horizontalSpace, vertical = verticalSpace) // Exact 2% screen size space!
+                .padding(horizontal = horizontalSpace, vertical = verticalSpace) // Exact 2% space
                 .navigationBarsPadding()
                 .imePadding()
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
-                ) {} // Catch clicks to prevent dismissing
+                ) {} // Catch clicks
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .padding(horizontal = 20.dp, vertical = 16.dp) // Removed verticalScroll from card parent!
             ) {
                 // Aesthetics handle bar
                 Box(
@@ -164,6 +194,7 @@ fun HomeScreen(
                     }
                 }
 
+                // Download models banner
                 if (uiState.llmStatus.isNotEmpty() && uiState.llmStatus != "ready") {
                     Spacer(modifier = Modifier.height(12.dp))
                     Column(
@@ -229,46 +260,97 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Microphone control and status area
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    MicButton(
-                        isListening = uiState.status == AssistantStatus.LISTENING,
-                        isProcessing = uiState.status == AssistantStatus.PROCESSING,
-                        modifier = Modifier.size(60.dp),
-                        onClick = { viewModel.onMicButtonClicked() }
-                    )
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
+                // Conversational Chat Bubble list (Independently scrollable)
+                if (uiState.transcript.isNotEmpty() || uiState.response.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
                     Column(
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp) // Responsive vertical height limit
+                            .verticalScroll(rememberScrollState())
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        StatusIndicator(status = uiState.status)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        TranscriptCard(
-                            userText = uiState.transcript,
-                            responseText = uiState.response,
-                            isVisible = uiState.transcript.isNotEmpty() || uiState.response.isNotEmpty(),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        // User transcript bubble (aligned right)
+                        if (uiState.transcript.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.85f)
+                                        .clip(RoundedCornerShape(16.dp, 16.dp, 0.dp, 16.dp))
+                                        .background(KairoSurfaceVariant.copy(alpha = 0.8f))
+                                        .border(BorderStroke(1.dp, KairoSurfaceVariant.copy(alpha = 0.9f)), RoundedCornerShape(16.dp, 16.dp, 0.dp, 16.dp))
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "You",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = KairoPrimaryVariant,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = uiState.transcript,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = KairoOnSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Kairo response bubble (aligned left)
+                        if (uiState.response.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Start
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.9f)
+                                        .clip(RoundedCornerShape(16.dp, 16.dp, 16.dp, 0.dp))
+                                        .background(KairoSurface.copy(alpha = 0.5f))
+                                        .border(BorderStroke(1.dp, borderGlowColor.copy(alpha = 0.4f)), RoundedCornerShape(16.dp, 16.dp, 16.dp, 0.dp))
+                                        .clickable { viewModel.stopSpeaking() } // Tapping response bubble stops speaking
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Kairo",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = KairoAccent,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            if (uiState.status == AssistantStatus.SPEAKING) {
+                                                Icon(
+                                                    imageVector = Icons.Default.VolumeUp,
+                                                    contentDescription = "Mute Speaking",
+                                                    tint = KairoAccent.copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = uiState.response,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = KairoOnSurface.copy(alpha = 0.9f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Waveform visualization
-                WaveformVisualizer(
-                    isActive = uiState.status == AssistantStatus.LISTENING,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(28.dp)
-                )
 
                 // Disambiguation Options Card
                 if (uiState.disambiguationOptions.isNotEmpty()) {
@@ -383,6 +465,40 @@ fun HomeScreen(
                             Text(text = "Cancel", color = KairoError)
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Centered Status Indicator
+                StatusIndicator(
+                    status = uiState.status,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Symmetrical Waveform visualization
+                WaveformVisualizer(
+                    isActive = uiState.status == AssistantStatus.LISTENING || uiState.status == AssistantStatus.SPEAKING,
+                    isProcessing = uiState.status == AssistantStatus.PROCESSING,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Centered Large Mic Orb
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MicButton(
+                        isListening = uiState.status == AssistantStatus.LISTENING,
+                        isProcessing = uiState.status == AssistantStatus.PROCESSING,
+                        modifier = Modifier.size(70.dp),
+                        onClick = { viewModel.onMicButtonClicked() }
+                    )
                 }
             }
         }

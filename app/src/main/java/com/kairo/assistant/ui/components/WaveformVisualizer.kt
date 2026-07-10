@@ -26,34 +26,56 @@ import kotlin.random.Random
 @Composable
 fun WaveformVisualizer(
     isActive: Boolean,
+    isProcessing: Boolean,
     modifier: Modifier = Modifier
 ) {
     val barCount = 40
+    val halfCount = barCount / 2
     val bars = remember {
-        List(barCount) { Animatable(0.1f) }
+        List(halfCount) { Animatable(0.1f) }
     }
 
-    LaunchedEffect(isActive) {
+    LaunchedEffect(isActive, isProcessing) {
         if (isActive) {
             while (true) {
                 bars.forEachIndexed { index, bar ->
                     launch {
-                        val targetHeight = Random.nextFloat() * 0.7f + 0.15f
+                        val centerBias = (index.toFloat() / halfCount).coerceIn(0.15f, 1.0f)
+                        val targetHeight = (Random.nextFloat() * 0.75f + 0.15f) * centerBias
                         bar.animateTo(
                             targetValue = targetHeight,
                             animationSpec = tween(
-                                durationMillis = Random.nextInt(100, 300),
+                                durationMillis = Random.nextInt(120, 280),
                             )
                         )
                     }
                 }
-                delay(100)
+                delay(90)
+            }
+        } else if (isProcessing) {
+            var step = 0
+            while (true) {
+                bars.forEachIndexed { index, bar ->
+                    launch {
+                        val centerBias = (index.toFloat() / halfCount).coerceIn(0.15f, 1.0f)
+                        val angle = (index * 0.35f) + (step * 0.2f)
+                        val targetHeight = (Math.sin(angle.toDouble()).toFloat() * 0.25f + 0.35f) * centerBias
+                        bar.animateTo(
+                            targetValue = targetHeight,
+                            animationSpec = tween(
+                                durationMillis = 150,
+                             )
+                        )
+                    }
+                }
+                step++
+                delay(120)
             }
         } else {
             bars.forEach { bar ->
                 launch {
                     bar.animateTo(
-                        targetValue = 0.1f,
+                        targetValue = 0.05f,
                         animationSpec = tween(durationMillis = 400)
                     )
                 }
@@ -64,26 +86,31 @@ fun WaveformVisualizer(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(60.dp)
+            .height(48.dp)
     ) {
         val totalWidth = size.width
-        val barWidth = totalWidth / (barCount * 2f)
-        val spacing = barWidth
+        val barWidth = totalWidth / (barCount * 1.8f)
+        val spacing = barWidth * 0.8f
         val maxHeight = size.height
 
-        bars.forEachIndexed { index, bar ->
-            val barHeight = maxHeight * bar.value
-            val x = index * (barWidth + spacing) + spacing / 2f
+        val heights = FloatArray(barCount)
+        for (i in 0 until halfCount) {
+            heights[i] = bars[i].value
+            heights[barCount - 1 - i] = bars[i].value
+        }
 
-            val progress = index.toFloat() / barCount
+        for (index in 0 until barCount) {
+            val rawHeight = heights[index]
+            val barHeight = maxHeight * rawHeight
+            val x = index * (barWidth + spacing) + (totalWidth - (barCount * (barWidth + spacing) - spacing)) / 2f
+
             val barBrush = Brush.verticalGradient(
                 colors = listOf(
-                    KairoGradientEnd.copy(alpha = 0.9f),
-                    KairoGradientStart.copy(alpha = 0.7f)
+                    KairoGradientEnd.copy(alpha = 0.95f),
+                    KairoGradientStart.copy(alpha = 0.75f)
                 )
             )
 
-            // Draw bar centered vertically
             drawRoundRect(
                 brush = if (isActive) barBrush else Brush.verticalGradient(
                     colors = listOf(
