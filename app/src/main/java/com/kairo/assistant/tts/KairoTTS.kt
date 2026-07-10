@@ -2,6 +2,7 @@ package com.kairo.assistant.tts
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import java.util.Locale
@@ -20,10 +21,30 @@ class KairoTTS(context: Context) {
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     Log.e("KairoTTS", "Language not supported")
                 } else {
-                    tts?.setPitch(1.0f)
-                    tts?.setSpeechRate(1.0f)
+                    // Try to query and select one of Google's premium offline neural voices (en-us-x- or en-gb-x-)
+                    try {
+                        val availableVoices = tts?.voices
+                        if (!availableVoices.isNullOrEmpty()) {
+                            val preferredVoice = availableVoices.find { voice ->
+                                (voice.name.contains("en-us-x-") || voice.name.contains("en-gb-x-")) &&
+                                voice.name.contains("local")
+                            } ?: availableVoices.find { voice ->
+                                voice.locale.language == Locale.ENGLISH.language && !voice.isNetworkConnectionRequired
+                            }
+                            
+                            preferredVoice?.let {
+                                tts?.voice = it
+                                Log.d("KairoTTS", "Selected premium neural voice: ${it.name}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("KairoTTS", "Failed to select premium voice profile", e)
+                    }
+
+                    tts?.setPitch(1.0f) // Keep standard pitch to prevent distortion
+                    tts?.setSpeechRate(1.0f) // Keep standard speed
                     isReady = true
-                    Log.d("KairoTTS", "TTS initialized successfully")
+                    Log.d("KairoTTS", "TTS initialized successfully with system defaults and neural voice check")
                 }
 
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {

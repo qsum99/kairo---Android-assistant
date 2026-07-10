@@ -6,7 +6,7 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
 
-    <!-- 1. Deep background glow -->
+    <!-- 1. Deep background radial glow aura -->
     <path
         android:pathData="M12,12m-9.5,0a9.5,9.5 0,1 1,19 0a9.5,9.5 0,1 1,-19 0">
         <aapt:attr name="android:fillColor">
@@ -15,14 +15,14 @@
                 android:centerY="12"
                 android:gradientRadius="9.5"
                 android:type="radial">
-                <item android:offset="0.0" android:color="#3500D2FF" />
-                <item android:offset="0.7" android:color="#0800E676" />
+                <item android:offset="0.0" android:color="#4000D2FF" />
+                <item android:offset="0.6" android:color="#1500E676" />
                 <item android:offset="1.0" android:color="#00000000" />
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- 2. First swirling wave loop (Teal to Blue) -->
+    <!-- 2. First swirling wave loop with soft tail fading (Teal to transparent Blue) -->
     <path
         android:pathData="M12,3.5 C16.69,3.5 20.5,7.31 20.5,12 C20.5,14.5 19.3,16.8 17.5,18.3 C16.2,14.2 12.8,11.2 8.5,10.2 C9.8,6.3 12,3.5 12,3.5 Z">
         <aapt:attr name="android:fillColor">
@@ -32,13 +32,15 @@
                 android:endX="17.5"
                 android:endY="18.3"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#00F5D4" /> <!-- Mint Teal -->
-                <item android:offset="1.0" android:color="#00B0FF" /> <!-- Cyan Blue -->
+                <item android:offset="0.0" android:color="#FFF5D4" /> <!-- Soft hot teal -->
+                <item android:offset="0.3" android:color="#CC00F5D4" /> <!-- Solid Mint Teal -->
+                <item android:offset="0.75" android:color="#4500B0FF" /> <!-- Translucent Cyan Blue -->
+                <item android:offset="1.0" android:color="#0000B0FF" /> <!-- Fully transparent end -->
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- 3. Second swirling wave loop (Green to Teal) -->
+    <!-- 3. Second swirling wave loop with soft tail fading (Green to transparent Teal) -->
     <path
         android:pathData="M12,20.5 C7.31,20.5 3.5,16.69 3.5,12 C3.5,9.5 4.7,7.2 6.5,5.7 C7.8,9.8 11.2,12.8 15.5,13.8 C14.2,17.7 12,20.5 12,20.5 Z">
         <aapt:attr name="android:fillColor">
@@ -48,13 +50,65 @@
                 android:endX="6.5"
                 android:endY="5.7"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#00E676" /> <!-- Neon Green -->
-                <item android:offset="1.0" android:color="#00F5D4" /> <!-- Mint Teal -->
+                <item android:offset="0.0" android:color="#FFE676" /> <!-- Soft hot green -->
+                <item android:offset="0.3" android:color="#CC00E676" /> <!-- Solid Neon Green -->
+                <item android:offset="0.75" android:color="#4500F5D4" /> <!-- Translucent Mint Teal -->
+                <item android:offset="1.0" android:color="#0000F5D4" /> <!-- Fully transparent end -->
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- 4. Overlapping glowing center core (Deep Radial glow) -->
+    <!-- 4. Ring 1: Green Orbit (Rotated -30 deg) with multi-layer glow strokes -->
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="-30">
+        <!-- A. Outer broad blur stroke -->
+        <path
+            android:strokeColor="#1800E676"
+            android:strokeWidth="3.4"
+            android:fillColor="#00000000"
+            android:pathData="M12,7.2 A8.5,4.8 0 0,0 12,16.8 A8.5,4.8 0 0,0 12,7.2 Z" />
+        <!-- B. Medium core glow stroke -->
+        <path
+            android:strokeColor="#5000E676"
+            android:strokeWidth="1.8"
+            android:fillColor="#00000000"
+            android:pathData="M12,7.2 A8.5,4.8 0 0,0 12,16.8 A8.5,4.8 0 0,0 12,7.2 Z" />
+        <!-- C. Sharp core highlight stroke -->
+        <path
+            android:strokeColor="#FFB9F6CA"
+            android:strokeWidth="0.8"
+            android:fillColor="#00000000"
+            android:pathData="M12,7.2 A8.5,4.8 0 0,0 12,16.8 A8.5,4.8 0 0,0 12,7.2 Z" />
+    </group>
+
+    <!-- 5. Ring 2: Blue Orbit (Rotated 30 deg) with multi-layer glow strokes -->
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="30">
+        <!-- A. Outer broad blur stroke -->
+        <path
+            android:strokeColor="#1800D2FF"
+            android:strokeWidth="3.4"
+            android:fillColor="#00000000"
+            android:pathData="M12,7.2 A8.5,4.8 0 0,0 12,16.8 A8.5,4.8 0 0,0 12,7.2 Z" />
+        <!-- B. Medium core glow stroke -->
+        <path
+            android:strokeColor="#5000D2FF"
+            android:strokeWidth="1.8"
+            android:fillColor="#00000000"
+            android:pathData="M12,7.2 A8.5,4.8 0 0,0 12,16.8 A8.5,4.8 0 0,0 12,7.2 Z" />
+        <!-- C. Sharp core highlight stroke -->
+        <path
+            android:strokeColor="#FF80D8FF"
+            android:strokeWidth="0.8"
+            android:fillColor="#00000000"
+            android:pathData="M12,7.2 A8.5,4.8 0 0,0 12,16.8 A8.5,4.8 0 0,0 12,7.2 Z" />
+    </group>
+
+    <!-- 6. Overlapping glowing center core (Soft diffused radial glow) -->
     <path
         android:pathData="M12,12m-4.2,0a4.2,4.2 0,1 1,8.4 0a4.2,4.2 0,1 1,-8.4 0">
         <aapt:attr name="android:fillColor">
@@ -63,16 +117,17 @@
                 android:centerY="12"
                 android:gradientRadius="4.2"
                 android:type="radial">
-                <item android:offset="0.0" android:color="#FFF1F5F9" /> <!-- White hot center -->
-                <item android:offset="0.4" android:color="#FF80DEEA" /> <!-- Cyan glow -->
-                <item android:offset="1.0" android:color="#0000D2FF" /> <!-- Transparent edge -->
+                <item android:offset="0.0" android:color="#FFF1F5F9" /> <!-- Hot White Center -->
+                <item android:offset="0.35" android:color="#D580DEEA" /> <!-- Semi-translucent Cyan -->
+                <item android:offset="0.8" android:color="#2000D2FF" /> <!-- Soft blue aura edge -->
+                <item android:offset="1.0" android:color="#0000D2FF" /> <!-- Smoothly blends out to transparent -->
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- 5. Fine boundary orbital overlay (Translucent white ring) -->
+    <!-- 7. Fine boundary orbital overlay (Faded white ring) -->
     <path
-        android:strokeColor="#18FFFFFF"
+        android:strokeColor="#10FFFFFF"
         android:strokeWidth="0.4"
         android:fillColor="#00000000"
         android:pathData="M12,12m-10.5,0a10.5,10.5 0,1 1,21 0a10.5,10.5 0,1 1,-21 0" />
