@@ -21,7 +21,7 @@
     <uses-permission android:name="android.permission.SEND_SMS" />
 
     <!-- Alarm setting (normal permission, install-time only) -->
-    <uses-permission android:name="android.permission.SET_ALARM" />
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
     <!-- List installed apps on Android 11+ -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"

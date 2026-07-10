@@ -33,7 +33,20 @@ class AlarmExecutor : ActionExecutor {
                 putExtra(AlarmClock.EXTRA_SKIP_UI, true)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(alarmIntent)
+            
+            try {
+                context.startActivity(alarmIntent)
+            } catch (e: SecurityException) {
+                Log.w("AlarmExecutor", "Silent alarm set blocked by security. Falling back to Clock UI...", e)
+                val uiIntent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                    putExtra(AlarmClock.EXTRA_HOUR, hour)
+                    putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                    putExtra(AlarmClock.EXTRA_SKIP_UI, false)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(uiIntent)
+            }
+            
             ActionResult(true, "Setting alarm for ${String.format("%02d:%02d", hour, minute)}")
         } catch (e: NumberFormatException) {
             Log.e("AlarmExecutor", "Error parsing alarm time", e)

@@ -99,6 +99,9 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    LaunchedEffect(context) {
+        viewModel.updateActiveContext(context)
+    }
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val horizontalSpace = (configuration.screenWidthDp * 0.02f).dp
     val verticalSpace = (configuration.screenHeightDp * 0.02f).dp

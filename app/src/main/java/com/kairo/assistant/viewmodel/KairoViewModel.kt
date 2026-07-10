@@ -91,6 +91,16 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         SpeechToTextManager(application)
     }
 
+    private var activeContextRef: java.lang.ref.WeakReference<Context>? = null
+
+    fun updateActiveContext(context: Context) {
+        this.activeContextRef = java.lang.ref.WeakReference(context)
+    }
+
+    private fun getActiveContext(): Context {
+        return activeContextRef?.get() ?: getApplication<Application>()
+    }
+
     init {
         // Collect model download progress
         viewModelScope.launch(Dispatchers.IO) {
@@ -448,7 +458,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // 2. Execute the action
-                val context = getApplication<Application>()
+                val context = getActiveContext()
                 val result = when (command.intent) {
                     IntentType.UNKNOWN -> {
                         logUnknownCommand(text)
@@ -511,7 +521,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         val spoken = pendingSpokenName
         
         if (spoken != null) {
-            val context = getApplication<Application>()
+            val context = getActiveContext()
             val prefs = context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
             prefs.edit().putString("contact_pref_${spoken.trim().lowercase()}", contact.first).apply()
         }
@@ -529,7 +539,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val context = getApplication<Application>()
+                val context = getActiveContext()
                 val finalCommand = if (intent == IntentType.SEND_SMS) {
                     ParsedCommand(
                         intent = IntentType.SEND_SMS,
@@ -614,7 +624,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val context = getApplication<Application>()
+                val context = getActiveContext()
                 val finalCommand = ParsedCommand(
                     intent = IntentType.CALL,
                     target = target,
