@@ -72,6 +72,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 
 @Composable
 fun HomeScreen(
@@ -126,8 +127,9 @@ fun HomeScreen(
             border = BorderStroke(borderGlowWidth, borderGlowColor), // Animated state border!
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(horizontal = horizontalSpace, vertical = verticalSpace) // Exact 2% space
+                .widthIn(max = 480.dp) // Set maximum width limit
+                .fillMaxWidth(0.92f) // Floating style (92% width)
+                .padding(vertical = verticalSpace)
                 .navigationBarsPadding()
                 .imePadding()
                 .clickable(

@@ -216,8 +216,8 @@ object LlamaEngine {
 
         return@withLock withContext(llmDispatcher) {
             try {
-                // Strict, direct system message for the Llama-3.2-1B model to enforce factual brevity
-                val systemMessage = "You are Kairo, a direct and factual assistant. Answer the question in 1 short sentence. No storytelling. No extra details."
+                // Relaxed system message to allow complete, concise responses
+                val systemMessage = "You are Kairo, a direct, helpful, and factual assistant. Keep your responses concise and accurate."
                 // Use standard Llama-3/Llama-3.2 Instruct prompt template tags
                 val prompt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n$systemMessage<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n$transcript<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
                 val responseBuilder = StringBuilder()
@@ -238,7 +238,7 @@ object LlamaEngine {
                                 currentText.contains("<|begin_of_text|>") || 
                                 currentText.contains("User:") || 
                                 currentText.contains("Assistant:") ||
-                                tokenCount >= 45) { // Limit to 45 tokens max to block wordy storytelling loops
+                                tokenCount >= 256) { // Raised to 256 tokens max to prevent cutting off factual answers
                                 stopSignalled = true
                             }
                         }
