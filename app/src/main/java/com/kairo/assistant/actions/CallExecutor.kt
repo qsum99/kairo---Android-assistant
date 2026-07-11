@@ -88,7 +88,7 @@ class CallExecutor : ActionExecutor {
             val callIntent = Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 if (selectedAccountHandle != null) {
-                    putExtra("telecom.extra.PHONE_ACCOUNT_HANDLE", selectedAccountHandle)
+                    putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, selectedAccountHandle)
                 }
             }
             context.startActivity(callIntent)
