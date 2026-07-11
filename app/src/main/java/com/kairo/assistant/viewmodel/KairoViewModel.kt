@@ -67,10 +67,10 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Components (initialized lazily) ──
     private val contactResolver: ContactResolver by lazy {
-        ContactResolver(application).also { it.loadContacts() }
+        ContactResolver(application)
     }
     private val appResolver: AppResolver by lazy {
-        AppResolver(application).also { it.loadApps() }
+        AppResolver(application)
     }
     private val ruleParser: RuleBasedParser by lazy {
         RuleBasedParser(contactResolver, appResolver)
@@ -103,6 +103,17 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        // Asynchronously pre-load contacts and apps in background to prevent blocking Main thread
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                contactResolver.loadContacts()
+                appResolver.loadApps()
+                Log.d(TAG, "Contacts and Apps pre-loaded successfully on background thread")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error pre-loading contacts or apps", e)
+            }
+        }
+
         // Collect model download progress
         viewModelScope.launch(Dispatchers.IO) {
             LlamaEngine.downloadProgressFlow.collect { progress ->
@@ -116,9 +127,10 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Initialize the on-device LLM in the background
+        // Initialize the on-device LLM in the background, delayed to prioritize UI launch rendering
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                kotlinx.coroutines.delay(2000) // Delay model load to allow smooth Compose rendering on launch
                 val prefs = application.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
                 val activityManager = application.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
                 val memoryInfo = android.app.ActivityManager.MemoryInfo()
