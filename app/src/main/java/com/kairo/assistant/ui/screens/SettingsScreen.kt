@@ -55,7 +55,6 @@ import com.kairo.assistant.ui.theme.KairoOnSurfaceVariant
 import com.kairo.assistant.ui.theme.KairoPrimary
 import com.kairo.assistant.ui.theme.KairoSurface
 import com.kairo.assistant.ui.theme.KairoSurfaceVariant
-import com.kairo.assistant.service.WakeWordServiceHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,20 +73,7 @@ fun SettingsScreen(
     }
     
     var llmFallbackEnabled by remember { mutableStateOf(prefs.getBoolean("llm_fallback_enabled", !isLowRam)) }
-    var wakeWordEnabled by remember { mutableStateOf(prefs.getBoolean("wake_word_enabled", false)) }
     var allowOnLockScreen by remember { mutableStateOf(prefs.getBoolean("allow_on_lock_screen", false)) }
-    
-
-
-    val notificationLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            wakeWordEnabled = true
-            prefs.edit().putBoolean("wake_word_enabled", true).apply()
-            WakeWordServiceHelper.start(context)
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -202,64 +188,9 @@ fun SettingsScreen(
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
 
-                    // Always-on Wake Word (Kairo)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Always-on Wake Word",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = KairoOnSurface
-                            )
-                            Text(
-                                text = "Wake up assistant by saying 'Kairo'",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoOnSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Switch(
-                            checked = wakeWordEnabled,
-                            onCheckedChange = { isChecked ->
-                                if (isChecked) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        val hasPermission = ContextCompat.checkSelfPermission(
-                                            context,
-                                            Manifest.permission.POST_NOTIFICATIONS
-                                        ) == PackageManager.PERMISSION_GRANTED
-                                        if (!hasPermission) {
-                                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                        } else {
-                                            wakeWordEnabled = true
-                                            prefs.edit().putBoolean("wake_word_enabled", true).apply()
-                                            WakeWordServiceHelper.start(context)
-                                        }
-                                    } else {
-                                        wakeWordEnabled = true
-                                        prefs.edit().putBoolean("wake_word_enabled", true).apply()
-                                        WakeWordServiceHelper.start(context)
-                                    }
-                                } else {
-                                    wakeWordEnabled = false
-                                    prefs.edit().putBoolean("wake_word_enabled", false).apply()
-                                    WakeWordServiceHelper.stop(context)
-                                }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = KairoPrimary,
-                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
-                                uncheckedThumbColor = KairoOnSurfaceVariant,
-                                uncheckedTrackColor = KairoSurfaceVariant
-                            )
-                        )
-                    }
 
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
+
+
 
                     // Allow on Lock Screen
                     Row(

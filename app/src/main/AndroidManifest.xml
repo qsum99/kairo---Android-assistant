@@ -58,11 +58,6 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".service.KairoWakeWordService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
 
         <receiver
             android:name=".receiver.KairoDeviceAdminReceiver"
@@ -78,16 +73,34 @@
             </intent-filter>
         </receiver>
 
-        <receiver
-            android:name=".receiver.KairoBootReceiver"
-            android:enabled="true"
+        <!-- Voice Interaction Service (System Voice Assistant) -->
+        <service
+            android:name=".service.KairoAssistantService"
+            android:label="Kairo"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.service.voice.VoiceInteractionService" />
             </intent-filter>
-        </receiver>
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/voice_interaction_service" />
+        </service>
 
+        <service
+            android:name=".service.KairoAssistantSessionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true" />
+
+        <service
+            android:name=".service.KairoRecognitionService"
+            android:label="Kairo Speech Recognition"
+            android:permission="android.permission.BIND_RECOGNITION_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

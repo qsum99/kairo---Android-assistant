@@ -11,7 +11,7 @@ import androidx.activity.viewModels
 import com.kairo.assistant.ui.KairoApp
 import com.kairo.assistant.ui.theme.KairoTheme
 import com.kairo.assistant.viewmodel.KairoViewModel
-import com.kairo.assistant.service.KairoWakeWordService
+
 
 /**
  * Main Activity — the single entry point for the Kairo voice assistant.
@@ -27,12 +27,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         configureLockScreenFlags()
 
-        // Auto-start background wake-word service if enabled in settings
-        val prefs = getSharedPreferences("kairo_prefs", MODE_PRIVATE)
-        val wakeWordEnabled = prefs.getBoolean("wake_word_enabled", false)
-        if (wakeWordEnabled) {
-            com.kairo.assistant.service.WakeWordServiceHelper.start(this)
-        }
+
 
         // Always start listening on launch (manual or assistant trigger)
         viewModel.startListeningAutomatic()
@@ -51,22 +46,14 @@ class MainActivity : ComponentActivity() {
         viewModel.startListeningAutomatic()
     }
 
-    override fun onStart() {
-        super.onStart()
-        KairoWakeWordService.isAppActive = true
-        KairoWakeWordService.stopListeningForWakeWord()
-    }
+
 
     override fun onResume() {
         super.onResume()
         configureLockScreenFlags()
     }
 
-    override fun onStop() {
-        super.onStop()
-        KairoWakeWordService.isAppActive = false
-        KairoWakeWordService.startListeningForWakeWord()
-    }
+
 
     private fun configureLockScreenFlags() {
         val prefs = getSharedPreferences("kairo_prefs", MODE_PRIVATE)

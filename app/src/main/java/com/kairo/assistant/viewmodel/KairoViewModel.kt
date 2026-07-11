@@ -278,15 +278,11 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                             val prompt = "I didn't catch that. Please say it again."
                             _uiState.update {
                                 it.copy(
-                                    status = AssistantStatus.SPEAKING,
+                                    status = AssistantStatus.IDLE,
                                     response = prompt
                                 )
                             }
-                            tts.speak(prompt) {
-                                viewModelScope.launch(Dispatchers.Main) {
-                                    startListening()
-                                }
-                            }
+                            tts.speak(prompt)
                         }
                     } else {
                         _uiState.update {
