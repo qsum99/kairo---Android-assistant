@@ -201,18 +201,13 @@ fun HomeScreen(
         ) {
             // Assistant bottom overlay card
             Card(
-                shape = RoundedCornerShape(28.dp), // Premium smooth corners
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                border = BorderStroke(borderGlowWidth, borderGlowColor), // Animated state border!
+                border = BorderStroke(0.dp, Color.Transparent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                KairoSurface.copy(alpha = 0.94f),
-                                KairoSurfaceVariant.copy(alpha = 0.90f)
-                            )
-                        ),
+                        color = Color.Transparent,
                         shape = RoundedCornerShape(28.dp)
                     )
                     .clickable(
@@ -534,7 +529,7 @@ fun HomeScreen(
                             // Glowing center orb visualizer centerpiece
                             Box(
                                 modifier = Modifier
-                                    .size(165.dp)
+                                    .size(200.dp)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null
@@ -818,16 +813,16 @@ fun HomeScreen(
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(62.dp)
+                                .size(80.dp)
                                 .clip(CircleShape)
-                                .background(if (uiState.status == AssistantStatus.LISTENING) KairoAccent.copy(alpha = 0.2f) else KairoSurfaceVariant)
+                                .background(if (uiState.status == AssistantStatus.LISTENING) KairoAccent.copy(alpha = 0.2f) else KairoSurfaceVariant.copy(alpha = 0.4f))
                                 .clickable { viewModel.onMicButtonClicked() }
                         ) {
                             GlowingOrbVisualizer(
                                 isListening = uiState.status == AssistantStatus.LISTENING,
                                 isProcessing = uiState.status == AssistantStatus.PROCESSING,
                                 isSpeaking = uiState.status == AssistantStatus.SPEAKING,
-                                modifier = Modifier.size(54.dp)
+                                modifier = Modifier.size(70.dp)
                             )
                         }
 
