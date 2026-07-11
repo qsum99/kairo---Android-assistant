@@ -186,11 +186,11 @@ object LlamaEngine {
                 System.gc()
 
                 val model = org.codeshipping.llamakotlin.LlamaModel.load(modelFile.absolutePath) {
-                    contextSize = 512
-                    batchSize = 512
-                    threads = 2
+                    contextSize = 256     // Smaller context = faster prompt processing
+                    batchSize = 256       // Match context size for optimal throughput
+                    threads = 4           // Use more CPU cores for parallel decoding
                     gpuLayers = 0
-                    temperature = 0.7f
+                    temperature = 0.3f    // Lower temp = faster sampling, more deterministic
                 }
 
                 llamaModel = model
@@ -217,7 +217,7 @@ object LlamaEngine {
         return@withLock withContext(llmDispatcher) {
             try {
                 // Relaxed system message to allow complete, concise responses
-                val systemMessage = "You are Kairo, a direct, helpful, and factual assistant. Keep your responses concise and accurate."
+                val systemMessage = "You are Kairo. Answer in 1-2 short sentences only."
                 // Use standard Llama-3/Llama-3.2 Instruct prompt template tags
                 val prompt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n$systemMessage<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n$transcript<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
                 val responseBuilder = StringBuilder()
@@ -238,7 +238,7 @@ object LlamaEngine {
                                 currentText.contains("<|begin_of_text|>") || 
                                 currentText.contains("User:") || 
                                 currentText.contains("Assistant:") ||
-                                tokenCount >= 256) { // Raised to 256 tokens max to prevent cutting off factual answers
+                                tokenCount >= 128) { // Cap at 128 tokens for faster responses
                                 stopSignalled = true
                             }
                         }
