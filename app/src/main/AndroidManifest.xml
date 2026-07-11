@@ -101,6 +101,13 @@
                 <action android:name="android.speech.RecognitionService" />
             </intent-filter>
         </service>
+
+        <!-- Wake Word Detection Service -->
+        <service
+            android:name=".service.KairoWakeWordService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
     </application>
 
 </manifest>
