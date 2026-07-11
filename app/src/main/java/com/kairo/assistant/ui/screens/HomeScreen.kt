@@ -526,26 +526,8 @@ fun HomeScreen(
                     } else {
                         // Regular mode: Orb visualizer when idle, or conversation bubbles when active
                         if (uiState.response.isEmpty() && uiState.transcript.isEmpty()) {
-                            // Glowing center orb visualizer centerpiece
-                            Box(
-                                modifier = Modifier
-                                    .size(200.dp)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null
-                                    ) {
-                                        viewModel.onMicButtonClicked()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                GlowingOrbVisualizer(
-                                    isListening = uiState.status == AssistantStatus.LISTENING,
-                                    isProcessing = uiState.status == AssistantStatus.PROCESSING,
-                                    isSpeaking = uiState.status == AssistantStatus.SPEAKING,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
+                            // Idle state - no center orb, just spacing
+                            Spacer(modifier = Modifier.height(12.dp))
                         } else {
                             // Active conversation mode - show scrollable chat bubbles Column
                             Column(
@@ -809,20 +791,20 @@ fun HomeScreen(
                             )
                         }
 
-                        // Center active mic trigger
+                        // Center active mic trigger — PRIMARY big orb
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(80.dp)
+                                .size(120.dp)
                                 .clip(CircleShape)
-                                .background(if (uiState.status == AssistantStatus.LISTENING) KairoAccent.copy(alpha = 0.2f) else KairoSurfaceVariant.copy(alpha = 0.4f))
+                                .background(if (uiState.status == AssistantStatus.LISTENING) KairoAccent.copy(alpha = 0.2f) else Color.Transparent)
                                 .clickable { viewModel.onMicButtonClicked() }
                         ) {
                             GlowingOrbVisualizer(
                                 isListening = uiState.status == AssistantStatus.LISTENING,
                                 isProcessing = uiState.status == AssistantStatus.PROCESSING,
                                 isSpeaking = uiState.status == AssistantStatus.SPEAKING,
-                                modifier = Modifier.size(70.dp)
+                                modifier = Modifier.size(108.dp)
                             )
                         }
 
