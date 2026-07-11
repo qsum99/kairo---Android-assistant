@@ -772,7 +772,6 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                                 it.copy(status = AssistantStatus.IDLE)
                             } else it
                         }
-                        startListening() // Automatically turn microphone back ON for follow-up query
                     }
                 }
             }
