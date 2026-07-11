@@ -73,6 +73,8 @@ fun SettingsScreen(
     }
     
     var llmFallbackEnabled by remember { mutableStateOf(prefs.getBoolean("llm_fallback_enabled", !isLowRam)) }
+    var voiceFeedbackEnabled by remember { mutableStateOf(prefs.getBoolean("voice_feedback_enabled", true)) }
+    var micMuted by remember { mutableStateOf(prefs.getBoolean("mic_muted", false)) }
     var allowOnLockScreen by remember { mutableStateOf(prefs.getBoolean("allow_on_lock_screen", false)) }
 
     Scaffold(
@@ -181,6 +183,82 @@ fun SettingsScreen(
                                 color = KairoOnSurfaceVariant
                             )
                         }
+                    }
+
+                    HorizontalDivider(
+                        color = KairoSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
+                    // Voice Feedback
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Voice Feedback",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = KairoOnSurface
+                            )
+                            Text(
+                                text = "Speak responses aloud using Text-to-Speech",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KairoOnSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Switch(
+                            checked = voiceFeedbackEnabled,
+                            onCheckedChange = { isChecked ->
+                                voiceFeedbackEnabled = isChecked
+                                prefs.edit().putBoolean("voice_feedback_enabled", isChecked).apply()
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = KairoPrimary,
+                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
+                                uncheckedThumbColor = KairoOnSurfaceVariant,
+                                uncheckedTrackColor = KairoSurfaceVariant
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(
+                        color = KairoSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
+                    // Mute Microphone
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Mute Microphone",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = KairoOnSurface
+                            )
+                            Text(
+                                text = "Disable microphone voice input recording",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KairoOnSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Switch(
+                            checked = micMuted,
+                            onCheckedChange = { isChecked ->
+                                micMuted = isChecked
+                                prefs.edit().putBoolean("mic_muted", isChecked).apply()
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = KairoPrimary,
+                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
+                                uncheckedThumbColor = KairoOnSurfaceVariant,
+                                uncheckedTrackColor = KairoSurfaceVariant
+                            )
+                        )
                     }
 
                     HorizontalDivider(

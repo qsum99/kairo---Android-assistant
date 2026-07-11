@@ -8,7 +8,7 @@ import android.util.Log
 import java.util.Locale
 import java.util.UUID
 
-class KairoTTS(context: Context) {
+class KairoTTS(private val context: Context) {
 
     private var tts: TextToSpeech? = null
     private var isReady: Boolean = false
@@ -68,6 +68,16 @@ class KairoTTS(context: Context) {
     }
 
     fun speak(text: String, onDone: () -> Unit = {}) {
+        val prefs = context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
+        val voiceFeedbackEnabled = prefs.getBoolean("voice_feedback_enabled", true)
+        if (!voiceFeedbackEnabled) {
+            Log.d("KairoTTS", "Voice feedback is muted. Invoking callback asynchronously on Main thread.")
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                onDone()
+            }
+            return
+        }
+
         if (isReady) {
             onUtteranceDoneListener = onDone
             val utteranceId = UUID.randomUUID().toString()

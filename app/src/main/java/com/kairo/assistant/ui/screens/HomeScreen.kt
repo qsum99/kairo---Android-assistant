@@ -15,6 +15,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.History
@@ -51,6 +54,8 @@ import com.kairo.assistant.ui.components.MicButton
 import com.kairo.assistant.ui.components.StatusIndicator
 import com.kairo.assistant.ui.components.TranscriptCard
 import com.kairo.assistant.ui.components.WaveformVisualizer
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.kairo.assistant.ui.theme.KairoAccent
 import com.kairo.assistant.ui.theme.KairoDarkBg
 import com.kairo.assistant.ui.theme.KairoGradientEnd
@@ -197,21 +202,30 @@ fun HomeScreen(
             // Assistant bottom overlay card
             Card(
                 shape = RoundedCornerShape(28.dp), // Premium smooth corners
-                colors = CardDefaults.cardColors(containerColor = KairoSurface.copy(alpha = 0.85f)), // Glassmorphism backdrop opacity
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 border = BorderStroke(borderGlowWidth, borderGlowColor), // Animated state border!
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                KairoSurface.copy(alpha = 0.94f),
+                                KairoSurfaceVariant.copy(alpha = 0.90f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(28.dp)
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {} // Catch clicks
             ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
-            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
                     // Aesthetics handle bar
                     Box(
                         modifier = Modifier
@@ -222,45 +236,133 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Header: Center branding
+                    // Header: Branding + Quick controls
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "KAIRO",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Black,
-                                brush = Brush.linearGradient(
-                                    colors = listOf(KairoGradientStart, KairoGradientEnd)
-                                )
+                        // Left: Microphone quick mute/unmute button
+                        val prefs = remember { context.getSharedPreferences("kairo_prefs", android.content.Context.MODE_PRIVATE) }
+                        var micMuted by remember {
+                            mutableStateOf(prefs.getBoolean("mic_muted", false))
+                        }
+                        
+                        IconButton(
+                            onClick = {
+                                val nextVal = !micMuted
+                                micMuted = nextVal
+                                prefs.edit().putBoolean("mic_muted", nextVal).apply()
+                                // If muting mic while Kairo is actively recording, stop listening immediately
+                                if (nextVal && uiState.status == AssistantStatus.LISTENING) {
+                                    viewModel.stopListening()
+                                }
+                            },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (micMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                                contentDescription = if (micMuted) "Unmute Microphone" else "Mute Microphone",
+                                tint = if (micMuted) KairoError.copy(alpha = 0.8f) else KairoAccent,
+                                modifier = Modifier.size(26.dp)
                             )
-                        )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            // Pulsing neon state indicator dot
+                            val dotColor by animateColorAsState(
+                                targetValue = when (uiState.status) {
+                                    AssistantStatus.LISTENING -> Color(0xFF00E676)
+                                    AssistantStatus.PROCESSING -> Color(0xFF00D2FF)
+                                    AssistantStatus.SPEAKING -> Color(0xFF00F5D4)
+                                    AssistantStatus.ERROR -> Color(0xFFEF4444)
+                                    else -> KairoOnSurfaceVariant.copy(alpha = 0.5f)
+                                },
+                                animationSpec = tween(500),
+                                label = "header_dot"
+                            )
+                            
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(dotColor)
+                            )
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            Text(
+                                text = "KAIRO",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Black,
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(KairoGradientStart, KairoGradientEnd)
+                                    )
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        // Right: Voice Feedback quick mute/unmute button
+                        var voiceFeedbackEnabled by remember {
+                            mutableStateOf(prefs.getBoolean("voice_feedback_enabled", true))
+                        }
+                        
+                        IconButton(
+                            onClick = {
+                                val nextVal = !voiceFeedbackEnabled
+                                voiceFeedbackEnabled = nextVal
+                                prefs.edit().putBoolean("voice_feedback_enabled", nextVal).apply()
+                            },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (voiceFeedbackEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                                contentDescription = if (voiceFeedbackEnabled) "Mute Voice" else "Unmute Voice",
+                                tint = if (voiceFeedbackEnabled) KairoAccent else KairoError.copy(alpha = 0.8f),
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (uiState.response.isEmpty() && uiState.transcript.isEmpty()) {
-                        // Suggestion Typewriter row
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
+                        // Cyber capsule layout for prompt suggestion
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(KairoSurfaceVariant.copy(alpha = 0.4f))
+                                .border(BorderStroke(1.dp, KairoPrimary.copy(alpha = 0.2f)), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text(
-                                text = subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = KairoPrimary,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = "|",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = KairoPrimary.copy(alpha = cursorAlpha),
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "> ",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = KairoAccent,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = KairoPrimary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "_",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = KairoAccent.copy(alpha = cursorAlpha),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(6.dp))
@@ -359,72 +461,76 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Only show the large center orb and keyboard fallback when NO active transcript/response is displayed
-                    if (uiState.response.isEmpty() && uiState.transcript.isEmpty()) {
-                        if (isKeyboardMode) {
-                            // Keyboard input field
-                            Column(
+                    if (isKeyboardMode) {
+                        // Keyboard input field (Always show when user wants to type!)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            TextField(
+                                value = keyboardText,
+                                onValueChange = { keyboardText = it },
+                                placeholder = { Text("Type query...", color = KairoOnSurfaceVariant) },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                TextField(
-                                    value = keyboardText,
-                                    onValueChange = { keyboardText = it },
-                                    placeholder = { Text("Type query...", color = KairoOnSurfaceVariant) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .border(BorderStroke(1.dp, KairoPrimary.copy(alpha = 0.3f)), RoundedCornerShape(16.dp)),
-                                    colors = TextFieldDefaults.colors(
-                                        focusedContainerColor = KairoSurfaceVariant,
-                                        unfocusedContainerColor = KairoSurfaceVariant.copy(alpha = 0.5f),
-                                        focusedTextColor = KairoOnSurface,
-                                        unfocusedTextColor = KairoOnSurface.copy(alpha = 0.8f),
-                                        focusedIndicatorColor = Color.Transparent,
-                                        unfocusedIndicatorColor = Color.Transparent
-                                    ),
-                                    trailingIcon = {
-                                        IconButton(
-                                            onClick = {
-                                                if (keyboardText.isNotBlank()) {
-                                                    viewModel.submitQuery(keyboardText)
-                                                    keyboardText = ""
-                                                    isKeyboardMode = false
-                                                }
-                                            }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Send,
-                                                contentDescription = "Send",
-                                                tint = KairoPrimary
-                                            )
-                                        }
-                                    },
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                                    keyboardActions = KeyboardActions(
-                                        onSend = {
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .border(BorderStroke(1.dp, KairoPrimary.copy(alpha = 0.3f)), RoundedCornerShape(16.dp)),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = KairoSurfaceVariant,
+                                    unfocusedContainerColor = KairoSurfaceVariant.copy(alpha = 0.5f),
+                                    focusedTextColor = KairoOnSurface,
+                                    unfocusedTextColor = KairoOnSurface.copy(alpha = 0.8f),
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                ),
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick = {
                                             if (keyboardText.isNotBlank()) {
                                                 viewModel.submitQuery(keyboardText)
                                                 keyboardText = ""
                                                 isKeyboardMode = false
                                             }
                                         }
-                                    )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Send,
+                                            contentDescription = "Send",
+                                            tint = KairoPrimary
+                                        )
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                                keyboardActions = KeyboardActions(
+                                    onSend = {
+                                        if (keyboardText.isNotBlank()) {
+                                            viewModel.submitQuery(keyboardText)
+                                            keyboardText = ""
+                                            isKeyboardMode = false
+                                        }
+                                    }
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Button(
-                                    onClick = { isKeyboardMode = false },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                                    border = BorderStroke(1.dp, KairoOnSurfaceVariant.copy(alpha = 0.3f)),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.height(36.dp),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 2.dp)
-                                ) {
-                                    Text("Cancel", color = KairoOnSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-                                }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { 
+                                    isKeyboardMode = false 
+                                    viewModel.startListeningAutomatic() // Reactivate recording on cancel
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                                border = BorderStroke(1.dp, KairoOnSurfaceVariant.copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.height(36.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 2.dp)
+                            ) {
+                                Text("Cancel", color = KairoOnSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                             }
-                        } else {
+                        }
+                    } else {
+                        // Regular mode: Orb visualizer when idle, or conversation bubbles when active
+                        if (uiState.response.isEmpty() && uiState.transcript.isEmpty()) {
                             // Glowing center orb visualizer centerpiece
                             Box(
                                 modifier = Modifier
@@ -444,118 +550,105 @@ fun HomeScreen(
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
-
                             Spacer(modifier = Modifier.height(6.dp))
-
-                            // Keyboard activation trigger
-                            Row(
+                        } else {
+                            // Active conversation mode - show scrollable chat bubbles Column
+                            Column(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { isKeyboardMode = true }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                                    .fillMaxWidth()
+                                    .heightIn(max = 280.dp)
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(vertical = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Keyboard,
-                                    contentDescription = "Keyboard Input",
-                                    tint = KairoOnSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Use Keyboard",
-                                    color = KairoOnSurfaceVariant,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
-
-                    if (uiState.transcript.isNotEmpty() || uiState.response.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 280.dp) // Expanded from 140.dp to 280.dp since centerpiece is hidden!
-                                .verticalScroll(rememberScrollState())
-                                .padding(vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            // User transcript bubble (aligned right)
-                            if (uiState.transcript.isNotEmpty()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.85f)
-                                            .clip(RoundedCornerShape(16.dp, 16.dp, 0.dp, 16.dp))
-                                            .background(KairoSurfaceVariant.copy(alpha = 0.8f))
-                                            .border(BorderStroke(1.dp, KairoSurfaceVariant.copy(alpha = 0.9f)), RoundedCornerShape(16.dp, 16.dp, 0.dp, 16.dp))
-                                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                                // User transcript bubble (aligned right)
+                                if (uiState.transcript.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End
                                     ) {
-                                        Column {
-                                            Text(
-                                                text = "You",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = KairoPrimaryVariant,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = uiState.transcript,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                color = KairoOnSurface
-                                            )
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.85f)
+                                                .clip(RoundedCornerShape(16.dp, 16.dp, 0.dp, 16.dp))
+                                                .background(
+                                                    Brush.linearGradient(
+                                                        colors = listOf(
+                                                            KairoPrimary.copy(alpha = 0.15f),
+                                                            KairoSurfaceVariant.copy(alpha = 0.6f)
+                                                        )
+                                                    )
+                                                )
+                                                .border(BorderStroke(1.dp, KairoPrimary.copy(alpha = 0.3f)), RoundedCornerShape(16.dp, 16.dp, 0.dp, 16.dp))
+                                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = "You",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = KairoPrimaryVariant,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = uiState.transcript,
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    color = KairoOnSurface
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            // Kairo response bubble (aligned left)
-                            if (uiState.response.isNotEmpty()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Start
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.9f)
-                                            .clip(RoundedCornerShape(16.dp, 16.dp, 16.dp, 0.dp))
-                                            .background(KairoSurface.copy(alpha = 0.5f))
-                                            .border(BorderStroke(1.dp, borderGlowColor.copy(alpha = 0.4f)), RoundedCornerShape(16.dp, 16.dp, 16.dp, 0.dp))
-                                            .clickable { viewModel.stopSpeaking() } // Tapping response bubble stops speaking
-                                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                                // Kairo response bubble (aligned left)
+                                if (uiState.response.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Start
                                     ) {
-                                        Column {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(
-                                                    text = "Kairo",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = KairoAccent,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                                if (uiState.status == AssistantStatus.SPEAKING) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.VolumeUp,
-                                                        contentDescription = "Mute Speaking",
-                                                        tint = KairoAccent.copy(alpha = 0.7f),
-                                                        modifier = Modifier.size(14.dp)
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.9f)
+                                                .clip(RoundedCornerShape(16.dp, 16.dp, 16.dp, 0.dp))
+                                                .background(
+                                                    Brush.linearGradient(
+                                                        colors = listOf(
+                                                            KairoSurfaceVariant.copy(alpha = 0.7f),
+                                                            KairoSurface.copy(alpha = 0.4f)
+                                                        )
                                                     )
+                                                )
+                                                .border(BorderStroke(1.dp, borderGlowColor.copy(alpha = 0.5f)), RoundedCornerShape(16.dp, 16.dp, 16.dp, 0.dp))
+                                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                        ) {
+                                            Column {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "Kairo",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = KairoAccent,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    if (uiState.status == AssistantStatus.SPEAKING) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.VolumeUp,
+                                                            contentDescription = "Mute Speaking",
+                                                            tint = KairoAccent.copy(alpha = 0.7f),
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                    }
                                                 }
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = uiState.response,
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    color = KairoOnSurface.copy(alpha = 0.9f)
+                                                )
                                             }
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = uiState.response,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                color = KairoOnSurface.copy(alpha = 0.9f)
-                                            )
                                         }
                                     }
                                 }
@@ -705,14 +798,17 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Left Contacts launch trigger
+                        // Left Keyboard launch trigger
                         IconButton(
-                            onClick = { viewModel.submitQuery("call contact") },
+                            onClick = { 
+                                isKeyboardMode = true 
+                                viewModel.stopListening() // Release mic when keyboard is active
+                            },
                             colors = IconButtonDefaults.iconButtonColors(containerColor = KairoSurfaceVariant.copy(alpha = 0.5f))
                         ) {
                             Icon(
-                                imageVector = Icons.Default.History,
-                                contentDescription = "Contacts/History",
+                                imageVector = Icons.Default.Keyboard,
+                                contentDescription = "Keyboard Input",
                                 tint = KairoOnSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )

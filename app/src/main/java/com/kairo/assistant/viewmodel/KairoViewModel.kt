@@ -92,6 +92,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private var activeContextRef: java.lang.ref.WeakReference<Context>? = null
+    private var isStoppingIntentionally = false
 
     fun updateActiveContext(context: Context) {
         this.activeContextRef = java.lang.ref.WeakReference(context)
@@ -236,12 +237,26 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun startListening() {
+        isStoppingIntentionally = false
+        val prefs = getApplication<Application>().getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
+        val micMuted = prefs.getBoolean("mic_muted", false)
+        if (micMuted) {
+            val responseText = "Microphone is muted. Please unmute to speak."
+            _uiState.update {
+                it.copy(
+                    status = AssistantStatus.IDLE,
+                    response = responseText
+                )
+            }
+            tts.speak(responseText)
+            return
+        }
+
         tts.stop() // Silence active voice feedback immediately before activating microphone
         _uiState.update {
             it.copy(
                 status = AssistantStatus.LISTENING,
-                transcript = "",
-                response = ""
+                transcript = ""
             )
         }
 
@@ -264,42 +279,49 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                 onPartialResult = { partial ->
                     Log.d(TAG, "STT partial: $partial")
                     _uiState.update {
-                        it.copy(transcript = partial)
+                        it.copy(
+                            transcript = partial,
+                            response = "" // Clear previous response bubble as soon as new voice input is registered
+                        )
                     }
                 },
                 onError = { error ->
-                    Log.e(TAG, "STT error: $error")
-                    val isTransient = error.contains("timeout", ignoreCase = true) || 
-                                     error.contains("no match", ignoreCase = true) ||
-                                     error.contains("busy", ignoreCase = true)
-                    
-                    if (isTransient) {
-                        viewModelScope.launch(Dispatchers.Main) {
-                            val prompt = "I didn't catch that. Please say it again."
+                    if (!isStoppingIntentionally) {
+                        Log.e(TAG, "STT error: $error")
+                        val isTransient = error.contains("timeout", ignoreCase = true) || 
+                                         error.contains("no match", ignoreCase = true) ||
+                                         error.contains("busy", ignoreCase = true)
+                        
+                        if (isTransient) {
+                            viewModelScope.launch(Dispatchers.Main) {
+                                val prompt = "I didn't catch that. Please say it again."
+                                _uiState.update {
+                                    it.copy(
+                                        status = AssistantStatus.IDLE,
+                                        response = prompt
+                                    )
+                                }
+                                tts.speak(prompt)
+                            }
+                        } else {
                             _uiState.update {
                                 it.copy(
-                                    status = AssistantStatus.IDLE,
-                                    response = prompt
+                                    status = AssistantStatus.ERROR,
+                                    response = error
                                 )
                             }
-                            tts.speak(prompt)
-                        }
-                    } else {
-                        _uiState.update {
-                            it.copy(
-                                status = AssistantStatus.ERROR,
-                                response = error
-                            )
-                        }
-                        // Reset to idle after a brief delay
-                        viewModelScope.launch {
-                            kotlinx.coroutines.delay(2000)
-                            _uiState.update {
-                                if (it.status == AssistantStatus.ERROR) {
-                                    it.copy(status = AssistantStatus.IDLE)
-                                } else it
+                            // Reset to idle after a brief delay
+                            viewModelScope.launch {
+                                kotlinx.coroutines.delay(2000)
+                                _uiState.update {
+                                    if (it.status == AssistantStatus.ERROR) {
+                                        it.copy(status = AssistantStatus.IDLE)
+                                    } else it
+                                }
                             }
                         }
+                    } else {
+                        Log.d(TAG, "Ignored STT error from intentional stop: $error")
                     }
                 }
             )
@@ -307,6 +329,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun stopListening() {
+        isStoppingIntentionally = true
         sttManager.stopListening()
         _uiState.update {
             it.copy(status = AssistantStatus.IDLE)
@@ -728,8 +751,17 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
-        // If it is a conversational intent (LLM response), do NOT exit. Keep it open!
-        val shouldAutoExit = intentType != IntentType.CONVERSATION
+        // Only auto-exit for explicit exits or when launching an external activity (where the overlay would block the app)
+        val shouldAutoExit = when (intentType) {
+            IntentType.EXIT,
+            IntentType.OPEN_APP,
+            IntentType.OPEN_SETTINGS,
+            IntentType.SET_ALARM,
+            IntentType.GOOGLE_SEARCH,
+            IntentType.BING_SEARCH,
+            IntentType.CALL -> true
+            else -> false
+        }
 
         if (!shouldAutoExit) {
             viewModelScope.launch(Dispatchers.Main) {
@@ -740,6 +772,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                                 it.copy(status = AssistantStatus.IDLE)
                             } else it
                         }
+                        startListening() // Automatically turn microphone back ON for follow-up query
                     }
                 }
             }
