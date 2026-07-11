@@ -127,12 +127,43 @@ class KairoWakeWordService : Service() {
         // Stop listening before launching (mic will be used by the app)
         stopWakeWordListening()
 
-        // Launch the main activity
+        // Use full-screen intent to launch from background (bypasses Android 10+ restrictions)
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("from_wake_word", true)
         }
-        startActivity(launchIntent)
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            this, 1001, launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Create a high-priority full-screen notification that immediately opens the app
+        val wakeChannelId = "kairo_wake_trigger"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val wakeChannel = NotificationChannel(
+                wakeChannelId,
+                "Kairo Wake Trigger",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Launches Kairo when wake word is detected"
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(wakeChannel)
+        }
+
+        val notification = NotificationCompat.Builder(this, wakeChannelId)
+            .setContentTitle("Kairo Activated")
+            .setContentText("Opening Kairo...")
+            .setSmallIcon(R.drawable.ic_mic)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
+            .setAutoCancel(true)
+            .build()
+
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.notify(2002, notification)
 
         // Restart wake word listening after a delay (app will take over mic, resume after it's done)
         android.os.Handler(mainLooper).postDelayed({
