@@ -76,8 +76,6 @@ fun SettingsScreen(
     var voiceFeedbackEnabled by remember { mutableStateOf(prefs.getBoolean("voice_feedback_enabled", true)) }
     var micMuted by remember { mutableStateOf(prefs.getBoolean("mic_muted", false)) }
     var allowOnLockScreen by remember { mutableStateOf(prefs.getBoolean("allow_on_lock_screen", false)) }
-    val settingsPrefs = remember { context.getSharedPreferences("kairo_settings", Context.MODE_PRIVATE) }
-    var wakeWordEnabled by remember { mutableStateOf(settingsPrefs.getBoolean("wake_word_enabled", false)) }
 
     Scaffold(
         topBar = {
@@ -267,49 +265,6 @@ fun SettingsScreen(
                         color = KairoSurfaceVariant,
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
-
-                    // Wake Word Detection
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Wake Word \"Kairo\"",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = KairoOnSurface
-                            )
-                            Text(
-                                text = "Say \"Kairo\" anytime to open the assistant",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoOnSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Switch(
-                            checked = wakeWordEnabled,
-                            onCheckedChange = { isChecked ->
-                                wakeWordEnabled = isChecked
-                                settingsPrefs.edit().putBoolean("wake_word_enabled", isChecked).apply()
-                                val serviceIntent = Intent(context, com.kairo.assistant.service.KairoWakeWordService::class.java)
-                                if (isChecked) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        context.startForegroundService(serviceIntent)
-                                    } else {
-                                        context.startService(serviceIntent)
-                                    }
-                                } else {
-                                    context.stopService(serviceIntent)
-                                }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = KairoPrimary,
-                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
-                                uncheckedThumbColor = KairoOnSurfaceVariant,
-                                uncheckedTrackColor = KairoSurfaceVariant
-                            )
-                        )
-                    }
 
                     // Allow on Lock Screen
                     Row(
