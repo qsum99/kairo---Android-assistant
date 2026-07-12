@@ -36,6 +36,7 @@ class RuleBasedParser(
         BingSearchIntentMatcher(),
         TorchIntentMatcher(),
         LockDeviceIntentMatcher(),
+        SettingsIntentMatcher(),
         CallIntentMatcher(contactResolver),
         SmsIntentMatcher(contactResolver),
         OpenAppIntentMatcher(appResolver),
@@ -43,8 +44,7 @@ class RuleBasedParser(
         BluetoothIntentMatcher(),
         WifiIntentMatcher(),
         InternetIntentMatcher(),
-        AirplaneModeIntentMatcher(),
-        SettingsIntentMatcher()
+        AirplaneModeIntentMatcher()
     )
 
     /**

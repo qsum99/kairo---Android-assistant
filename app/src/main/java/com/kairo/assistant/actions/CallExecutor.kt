@@ -22,10 +22,18 @@ class CallExecutor : ActionExecutor {
 
         var number = rawExtra
         var selectedAccountHandle: PhoneAccountHandle? = null
+        var requestedSimIndex: Int? = null
+
+        // Extract requested SIM index from CallIntentMatcher if present
+        if (rawExtra.contains("|requested_sim|")) {
+            val parts = rawExtra.split("|requested_sim|")
+            number = parts[0]
+            requestedSimIndex = parts.getOrNull(1)?.toIntOrNull()
+        }
 
         // Parse explicitly selected SIM handle if passed from ViewModel
-        if (rawExtra.contains("|selected_sim|")) {
-            val parts = rawExtra.split("|selected_sim|")
+        if (number.contains("|selected_sim|")) {
+            val parts = number.split("|selected_sim|")
             number = parts[0]
             val simDetails = parts.getOrNull(1)?.split(":")
             val componentStr = simDetails?.getOrNull(0)
@@ -48,33 +56,60 @@ class CallExecutor : ActionExecutor {
 
         // If no explicit SIM selected, check SharedPreferences or trigger custom SIM chooser
         if (selectedAccountHandle == null && phoneAccounts.size > 1) {
-            val prefs = context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
-            val prefKey = "contact_sim_pref_${command.target?.trim()?.lowercase()}"
-            val savedHandleStr = prefs.getString(prefKey, null) // Format "componentStr:handleId"
-            
-            if (savedHandleStr != null) {
-                val parts = savedHandleStr.split(":")
-                val comp = parts.getOrNull(0)
-                val id = parts.getOrNull(1)
-                if (!comp.isNullOrEmpty() && !id.isNullOrEmpty()) {
-                    selectedAccountHandle = phoneAccounts.firstOrNull {
-                        it.componentName.flattenToString() == comp && it.id == id
+            // 1. Explicit SIM requested via voice command (with sim1 / with sim2)
+            if (requestedSimIndex != null) {
+                selectedAccountHandle = phoneAccounts.getOrNull(requestedSimIndex - 1)
+            }
+
+            // 2. Fall back to Settings default option if no explicit SIM specified
+            if (selectedAccountHandle == null) {
+                val prefs = context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
+                val defaultSimSetting = prefs.getString("default_calling_sim", "always_ask") ?: "always_ask"
+                if (defaultSimSetting == "sim1") {
+                    selectedAccountHandle = phoneAccounts.getOrNull(0)
+                } else if (defaultSimSetting == "sim2") {
+                    selectedAccountHandle = phoneAccounts.getOrNull(1)
+                }
+            }
+
+            // 3. Fall back to contact-specific SIM preference
+            if (selectedAccountHandle == null) {
+                val prefs = context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
+                val prefKey = "contact_sim_pref_${command.target?.trim()?.lowercase()}"
+                val savedHandleStr = prefs.getString(prefKey, null) // Format "componentStr:handleId"
+                
+                if (savedHandleStr != null) {
+                    val parts = savedHandleStr.split(":")
+                    val comp = parts.getOrNull(0)
+                    val id = parts.getOrNull(1)
+                    if (!comp.isNullOrEmpty() && !id.isNullOrEmpty()) {
+                        selectedAccountHandle = phoneAccounts.firstOrNull {
+                            it.componentName.flattenToString() == comp && it.id == id
+                        }
                     }
                 }
             }
 
             // If still no SIM handle is found, return the list of SIM options to prompt the user
             if (selectedAccountHandle == null) {
-                val simOptionsList = phoneAccounts.mapNotNull { handle ->
+                val simOptionsList = phoneAccounts.mapIndexed { index, handle ->
                     val account = try {
                         telecomManager?.getPhoneAccount(handle)
                     } catch (e: Exception) {
                         null
                     }
-                    val label = account?.label?.toString() ?: "SIM"
+                    val carrier = account?.label?.toString() ?: ""
+                    // Filter out long technical labels or numbers
+                    val cleanCarrier = if (carrier.isNotEmpty() && carrier.length <= 20 && 
+                        !carrier.contains("ComponentInfo") && !carrier.contains("PhoneAccount")) {
+                        " ($carrier)"
+                    } else {
+                        ""
+                    }
+                    val simLabel = "SIM ${index + 1}$cleanCarrier"
                     val compName = handle.componentName.flattenToString()
                     val id = handle.id
-                    "$label|$compName:$id"
+                    "$simLabel|$compName:$id"
                 }
                 val simOptionsString = simOptionsList.joinToString(";")
                 return ActionResult(

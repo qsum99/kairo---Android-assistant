@@ -57,11 +57,32 @@ class RuleBasedParserTest {
     @Test
     fun testCallDisambiguation() {
         // "john d" matches John Doe (0.75) and John (0.67) which are both above 0.55
+        // It should match the best/first match and call directly.
         val command = parser.tryMatch("call john d")
         assertEquals(IntentType.CALL, command.intent)
-        assertTrue(command.extra?.startsWith("disambiguate") == true)
-        assertTrue(command.extra?.contains("John Doe:2222222222") == true)
-        assertTrue(command.extra?.contains("John:5551234567") == true)
+        assertEquals("John Doe", command.target)
+        assertEquals("2222222222", command.extra)
+    }
+
+    @Test
+    fun testCallDirectNumber() {
+        val command = parser.tryMatch("call +1234567890")
+        assertEquals(IntentType.CALL, command.intent)
+        assertEquals("+1234567890", command.target)
+        assertEquals("+1234567890", command.extra)
+    }
+
+    @Test
+    fun testCallWithExplicitSim() {
+        val command1 = parser.tryMatch("call Mom with sim1")
+        assertEquals(IntentType.CALL, command1.intent)
+        assertEquals("Mom", command1.target)
+        assertEquals("1234567890|requested_sim|1", command1.extra)
+
+        val command2 = parser.tryMatch("call Mom using sim2")
+        assertEquals(IntentType.CALL, command2.intent)
+        assertEquals("Mom", command2.target)
+        assertEquals("1234567890|requested_sim|2", command2.extra)
     }
 
     @Test
@@ -162,6 +183,18 @@ class RuleBasedParserTest {
         val command2 = parser.tryMatch("bing")
         assertEquals(IntentType.BING_SEARCH, command2.intent)
         assertEquals("", command2.target)
+
+        val command3 = parser.tryMatch("bing app who is the president of USA")
+        assertEquals(IntentType.BING_SEARCH, command3.intent)
+        assertEquals("who is the president of USA", command3.target)
+
+        val command4 = parser.tryMatch("search on bing app for weather")
+        assertEquals(IntentType.BING_SEARCH, command4.intent)
+        assertEquals("weather", command4.target)
+
+        val command5 = parser.tryMatch("bing app")
+        assertEquals(IntentType.BING_SEARCH, command5.intent)
+        assertEquals("", command5.target)
     }
 
     @Test

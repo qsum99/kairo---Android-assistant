@@ -688,7 +688,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         intentType: IntentType
     ) {
         if (!result.success && result.message.startsWith("select_sim")) {
-            val parts = result.message.split("|")
+            val parts = result.message.split("|", limit = 4)
             val targetName = parts.getOrNull(1) ?: ""
             val number = parts.getOrNull(2) ?: ""
             val simListRaw = parts.getOrNull(3) ?: ""

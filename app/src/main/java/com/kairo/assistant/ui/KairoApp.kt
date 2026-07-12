@@ -81,7 +81,8 @@ fun KairoApp(onExit: () -> Unit = {}) {
                 },
                 onLlmFallbackToggled = { enabled ->
                     kairoViewModel.setLlmFallbackEnabled(enabled)
-                }
+                },
+                viewModel = kairoViewModel
             )
         }
     }

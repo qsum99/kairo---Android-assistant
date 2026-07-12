@@ -19,7 +19,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -42,6 +45,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import com.kairo.assistant.viewmodel.KairoViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,8 +66,10 @@ import com.kairo.assistant.ui.theme.KairoSurfaceVariant
 @Composable
 fun SettingsScreen(
     onBackClick: () -> Unit,
-    onLlmFallbackToggled: (Boolean) -> Unit = {}
+    onLlmFallbackToggled: (Boolean) -> Unit = {},
+    viewModel: KairoViewModel
 ) {
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE) }
     
@@ -76,6 +84,14 @@ fun SettingsScreen(
     var voiceFeedbackEnabled by remember { mutableStateOf(prefs.getBoolean("voice_feedback_enabled", true)) }
     var micMuted by remember { mutableStateOf(prefs.getBoolean("mic_muted", false)) }
     var allowOnLockScreen by remember { mutableStateOf(prefs.getBoolean("allow_on_lock_screen", false)) }
+    var showSimDialog by remember { mutableStateOf(false) }
+    var defaultSimSetting by remember { mutableStateOf(prefs.getString("default_calling_sim", "always_ask") ?: "always_ask") }
+
+    val modelFile = remember { java.io.File(context.filesDir, "kairo_model_v7.gguf") }
+    var isModelDownloaded by remember { mutableStateOf(modelFile.exists()) }
+    LaunchedEffect(uiState.llmStatus) {
+        isModelDownloaded = modelFile.exists()
+    }
 
     Scaffold(
         topBar = {
@@ -159,6 +175,72 @@ fun SettingsScreen(
                                 uncheckedTrackColor = KairoSurfaceVariant
                             )
                         )
+                    }
+
+                    HorizontalDivider(
+                        color = KairoSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
+                    // Fallback LLM Model Download Row
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Fallback LLM Model",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = KairoOnSurface
+                            )
+                            Text(
+                                text = if (uiState.isLlmDownloading) {
+                                    "Downloading: ${((uiState.llmDownloadProgress ?: 0f) * 100).toInt()}%"
+                                } else if (isModelDownloaded) {
+                                    "Model ready (484MB)"
+                                } else {
+                                    "Required for offline chat & queries (484MB)"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KairoOnSurfaceVariant
+                            )
+                            if (uiState.isLlmDownloading) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                androidx.compose.material3.LinearProgressIndicator(
+                                    progress = uiState.llmDownloadProgress ?: 0f,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp)),
+                                    color = KairoPrimary,
+                                    trackColor = KairoSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        if (uiState.isLlmDownloading) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                progress = uiState.llmDownloadProgress ?: 0f,
+                                modifier = Modifier.size(24.dp),
+                                color = KairoPrimary,
+                                strokeWidth = 2.5.dp
+                            )
+                        } else if (isModelDownloaded) {
+                            Text(
+                                text = "Downloaded",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KairoPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            Button(
+                                onClick = { viewModel.downloadLlmModel() },
+                                colors = ButtonDefaults.buttonColors(containerColor = KairoPrimary),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Download", color = KairoOnSurface)
+                            }
+                        }
                     }
 
                     HorizontalDivider(
@@ -296,6 +378,109 @@ fun SettingsScreen(
                                 uncheckedThumbColor = KairoOnSurfaceVariant,
                                 uncheckedTrackColor = KairoSurfaceVariant
                             )
+                        )
+                    }
+
+                    HorizontalDivider(
+                        color = KairoSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
+                    // Default Calling SIM
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Default Calling SIM",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = KairoOnSurface
+                            )
+                            Text(
+                                text = "Preferred SIM for placing voice calls",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KairoOnSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Button(
+                            onClick = { showSimDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = KairoPrimary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = when (defaultSimSetting) {
+                                    "sim1" -> "SIM 1"
+                                    "sim2" -> "SIM 2"
+                                    else -> "Always Ask"
+                                },
+                                color = KairoOnSurface
+                            )
+                        }
+                    }
+
+                    if (showSimDialog) {
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { showSimDialog = false },
+                            title = {
+                                Text(
+                                    text = "Select Default SIM",
+                                    color = KairoOnSurface,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            containerColor = KairoSurface,
+                            textContentColor = KairoOnSurface,
+                            confirmButton = {},
+                            dismissButton = {
+                                Button(
+                                    onClick = { showSimDialog = false },
+                                    colors = ButtonDefaults.buttonColors(containerColor = KairoSurfaceVariant)
+                                ) {
+                                    Text("Cancel", color = KairoOnSurface)
+                                }
+                            },
+                            text = {
+                                Column {
+                                    listOf(
+                                        Pair("always_ask", "Always Ask"),
+                                        Pair("sim1", "SIM 1"),
+                                        Pair("sim2", "SIM 2")
+                                    ).forEach { (value, label) ->
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    defaultSimSetting = value
+                                                    prefs.edit().putString("default_calling_sim", value).apply()
+                                                    showSimDialog = false
+                                                }
+                                                .padding(vertical = 12.dp, horizontal = 8.dp)
+                                        ) {
+                                            androidx.compose.material3.RadioButton(
+                                                selected = defaultSimSetting == value,
+                                                onClick = {
+                                                    defaultSimSetting = value
+                                                    prefs.edit().putString("default_calling_sim", value).apply()
+                                                    showSimDialog = false
+                                                },
+                                                colors = androidx.compose.material3.RadioButtonDefaults.colors(
+                                                    selectedColor = KairoPrimary,
+                                                    unselectedColor = KairoOnSurfaceVariant
+                                                )
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = KairoOnSurface
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         )
                     }
 

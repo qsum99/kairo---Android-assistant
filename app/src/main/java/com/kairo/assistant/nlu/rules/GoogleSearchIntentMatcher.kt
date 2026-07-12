@@ -20,6 +20,15 @@ class GoogleSearchIntentMatcher : IntentMatcher {
     override fun tryMatch(transcript: String): ParsedCommand? {
         val input = transcript.trim()
         
+        if (input.equals("google", ignoreCase = true)) {
+            return ParsedCommand(
+                intent = intentType,
+                target = "",
+                extra = "",
+                confidence = 0.95f
+            )
+        }
+
         for (pattern in PATTERNS) {
             val match = pattern.find(input)
             if (match != null) {

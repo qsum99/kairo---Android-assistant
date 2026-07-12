@@ -28,9 +28,14 @@ class CallIntentMatcher(
     override fun tryMatch(transcript: String): ParsedCommand? {
         val input = transcript.trim()
 
+        val simSuffixRegex = Regex("""(?:\bwith\b|\busing\b|\bon\b|\bvia\b)\s+sim\s*(\d)\b""", RegexOption.IGNORE_CASE)
+        val simMatch = simSuffixRegex.find(input)
+        val requestedSimIndex = simMatch?.groupValues?.get(1)?.toIntOrNull() // 1 or 2
+        val cleanedInput = if (simMatch != null) input.replace(simSuffixRegex, "").trim() else input
+
         var spokenName: String? = null
         for (pattern in PATTERNS) {
-            val match = pattern.find(input)
+            val match = pattern.find(cleanedInput)
             if (match != null) {
                 spokenName = match.groupValues[1].trim()
                 break
@@ -39,31 +44,34 @@ class CallIntentMatcher(
         if (spokenName == null || spokenName.isEmpty()) return null
 
         val matches = contactResolver.resolveMultiple(spokenName)
+        val cleanNumber = spokenName.replace(Regex("""[\s\-\(\)]"""), "")
+        val isPhoneNumber = cleanNumber.isNotEmpty() && cleanNumber.all { it.isDigit() || it == '+' }
+
+        val simSuffix = if (requestedSimIndex != null) "|requested_sim|$requestedSimIndex" else ""
 
         return when {
+            isPhoneNumber -> {
+                ParsedCommand(
+                    intent = IntentType.CALL,
+                    target = spokenName,
+                    extra = cleanNumber + simSuffix,
+                    confidence = 0.9f
+                )
+            }
             matches.isEmpty() -> {
                 ParsedCommand(
                     intent = IntentType.CALL,
                     target = spokenName,
-                    extra = "not_found",
-                    confidence = 0.9f
-                )
-            }
-            matches.size == 1 -> {
-                val resolved = matches[0]
-                ParsedCommand(
-                    intent = IntentType.CALL,
-                    target = resolved.first,
-                    extra = resolved.second,
+                    extra = "not_found" + simSuffix,
                     confidence = 0.9f
                 )
             }
             else -> {
-                val disambiguateString = "disambiguate|" + matches.joinToString("|") { "${it.first}:${it.second}" }
+                val resolved = matches[0]
                 ParsedCommand(
                     intent = IntentType.CALL,
-                    target = spokenName,
-                    extra = disambiguateString,
+                    target = resolved.first,
+                    extra = resolved.second + simSuffix,
                     confidence = 0.9f
                 )
             }

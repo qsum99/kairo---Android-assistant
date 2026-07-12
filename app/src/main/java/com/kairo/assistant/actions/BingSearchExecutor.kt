@@ -9,20 +9,30 @@ import java.net.URLEncoder
 class BingSearchExecutor : ActionExecutor {
     override fun execute(command: ParsedCommand, context: Context): ActionResult {
         val query = command.target ?: ""
+        val url = if (query.isBlank()) {
+            "https://www.bing.com"
+        } else {
+            "https://www.bing.com/search?q=${URLEncoder.encode(query, "UTF-8")}"
+        }
         return try {
-            val url = if (query.isBlank()) {
-                "https://www.bing.com"
-            } else {
-                "https://www.bing.com/search?q=${URLEncoder.encode(query, "UTF-8")}"
-            }
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            val bingAppIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                setPackage("com.microsoft.bing")
             }
-            context.startActivity(intent)
-            val successMessage = if (query.isBlank()) "Opening Bing" else "Searching Bing for $query"
+            context.startActivity(bingAppIntent)
+            val successMessage = if (query.isBlank()) "Opening Bing app" else "Searching Bing app for $query"
             ActionResult(true, successMessage)
         } catch (e: Exception) {
-            ActionResult(false, "Failed to open Bing search: ${e.message}")
+            try {
+                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(browserIntent)
+                val successMessage = if (query.isBlank()) "Opening Bing in browser" else "Searching Bing for $query"
+                ActionResult(true, successMessage)
+            } catch (fallbackException: Exception) {
+                ActionResult(false, "Failed to open Bing search: ${fallbackException.message}")
+            }
         }
     }
 }
