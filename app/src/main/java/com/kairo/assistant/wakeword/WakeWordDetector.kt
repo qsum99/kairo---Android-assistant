@@ -89,12 +89,15 @@ class WakeWordDetector(private val context: Context) {
         isRunning = true
         coroutineScope = CoroutineScope(Dispatchers.Default)
 
+        val prefs = context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
+        val dynamicThreshold = prefs.getFloat("wakeword_threshold", 0.90f)
+
         // Initialize the offline OpenWakeWord ONNX pipeline with the placeholder model
         val models = listOf(
             WakeWordModel(
                 name = "Kairo",
                 modelPath = "kairo.onnx", // Uses assets/kairo.onnx
-                threshold = WAKE_WORD_THRESHOLD
+                threshold = dynamicThreshold
             )
         )
 

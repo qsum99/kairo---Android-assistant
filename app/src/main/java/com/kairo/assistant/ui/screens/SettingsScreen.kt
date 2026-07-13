@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
@@ -94,6 +95,7 @@ fun SettingsScreen(
         isModelDownloaded = modelFile.exists()
     }
     var heyKairoEnabled by remember { mutableStateOf(prefs.getBoolean(HeyKairoListenerService.PREF_ENABLED, false)) }
+    var wakeWordThreshold by remember { mutableStateOf(prefs.getFloat("wakeword_threshold", 0.90f)) }
 
     Scaffold(
         topBar = {
@@ -527,6 +529,46 @@ fun SettingsScreen(
                                 uncheckedTrackColor = KairoSurfaceVariant
                             )
                         )
+                    }
+
+                    if (heyKairoEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Sensitivity Threshold",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = KairoOnSurface
+                                )
+                                Text(
+                                    text = String.format("%.2f", wakeWordThreshold),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = KairoPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            androidx.compose.material3.Slider(
+                                value = wakeWordThreshold,
+                                onValueChange = { newValue ->
+                                    wakeWordThreshold = newValue
+                                    prefs.edit().putFloat("wakeword_threshold", newValue).apply()
+                                },
+                                valueRange = 0.50f..0.98f,
+                                colors = androidx.compose.material3.SliderDefaults.colors(
+                                    thumbColor = KairoPrimary,
+                                    activeTrackColor = KairoPrimary,
+                                    inactiveTrackColor = KairoSurfaceVariant
+                                )
+                            )
+                            Text(
+                                text = "Higher threshold reduces false triggers. Toggle Kairo Wake Word switch OFF and ON to apply a new sensitivity.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = KairoOnSurfaceVariant
+                            )
+                        }
                     }
 
                     HorizontalDivider(
