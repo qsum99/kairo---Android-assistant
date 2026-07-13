@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.kairo.assistant.service.HeyKairoListenerService
 import com.kairo.assistant.ui.theme.KairoAccent
 import com.kairo.assistant.ui.theme.KairoDarkBg
 import com.kairo.assistant.ui.theme.KairoOnSurface
@@ -92,6 +93,7 @@ fun SettingsScreen(
     LaunchedEffect(uiState.llmStatus) {
         isModelDownloaded = modelFile.exists()
     }
+    var heyKairoEnabled by remember { mutableStateOf(prefs.getBoolean(HeyKairoListenerService.PREF_ENABLED, false)) }
 
     Scaffold(
         topBar = {
@@ -489,6 +491,49 @@ fun SettingsScreen(
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
 
+                    // Kairo Wake Word
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Kairo Wake Word",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = KairoOnSurface
+                            )
+                            Text(
+                                text = "Say \"Kairo\" or \"Hey Kairo\" to launch the assistant hands-free",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KairoOnSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Switch(
+                            checked = heyKairoEnabled,
+                            onCheckedChange = { isChecked ->
+                                heyKairoEnabled = isChecked
+                                prefs.edit().putBoolean(HeyKairoListenerService.PREF_ENABLED, isChecked).apply()
+                                if (isChecked) {
+                                    HeyKairoListenerService.startIfEnabled(context)
+                                } else {
+                                    HeyKairoListenerService.stop(context)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = KairoPrimary,
+                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
+                                uncheckedThumbColor = KairoOnSurfaceVariant,
+                                uncheckedTrackColor = KairoSurfaceVariant
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(
+                        color = KairoSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
                     // Default Assistant Config
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -561,6 +606,87 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = KairoOnSurfaceVariant
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── Diagnostics Section ──
+            Text(
+                text = "DIAGNOSTICS & LOGS",
+                style = MaterialTheme.typography.labelMedium,
+                color = KairoOnSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+            )
+
+            var diagnosticLogs by remember {
+                mutableStateOf(
+                    run {
+                        val file = java.io.File(context.filesDir, "wakeword_logs.txt")
+                        if (file.exists()) file.readText() else "No logs found yet. Toggle Hey Kairo to generate logs."
+                    }
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(KairoSurface)
+                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(12.dp))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                val file = java.io.File(context.filesDir, "wakeword_logs.txt")
+                                diagnosticLogs = if (file.exists()) file.readText() else "No logs found yet."
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = KairoPrimary),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Refresh Logs", color = KairoOnSurface)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                val file = java.io.File(context.filesDir, "wakeword_logs.txt")
+                                if (file.exists()) {
+                                    file.delete()
+                                }
+                                diagnosticLogs = "Logs cleared successfully."
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = KairoSurfaceVariant),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Clear Logs", color = KairoOnSurface)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(KairoDarkBg)
+                            .padding(8.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        androidx.compose.foundation.text.selection.SelectionContainer {
+                            Text(
+                                text = diagnosticLogs,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = KairoOnSurface
+                            )
+                        }
+                    }
                 }
             }
 
