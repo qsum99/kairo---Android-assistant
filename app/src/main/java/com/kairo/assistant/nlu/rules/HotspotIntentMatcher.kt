@@ -4,13 +4,13 @@ import com.kairo.assistant.nlu.IntentMatcher
 import com.kairo.assistant.nlu.models.IntentType
 import com.kairo.assistant.nlu.models.ParsedCommand
 
-class BluetoothIntentMatcher : IntentMatcher {
+class HotspotIntentMatcher : IntentMatcher {
 
-    override val intentType: IntentType = IntentType.TOGGLE_BLUETOOTH
+    override val intentType: IntentType = IntentType.TOGGLE_HOTSPOT
 
     companion object {
         private val PATTERN = Regex(
-            """(?:\b(?:turn\s+|switch\s+)?(?:on|off|enable|disable|toggle|activate|deactivate)\b.*\b(?:bluetooth|blue\s*tooth|bt|ble)\b)|\b(?:bluetooth|blue\s*tooth|bt|ble)\b.*\b(?:on|off|enable|disable|toggle|activate|deactivate)\b""",
+            """(?:\b(?:turn\s+|switch\s+)?(?:on|off|enable|disable|toggle|activate|deactivate)\b.*\b(?:hotspot|hot\s+spot|tethering|tether|personal\s+hotspot)\b)|\b(?:hotspot|hot\s+spot|tethering|tether|personal\s+hotspot)\b.*\b(?:on|off|enable|disable|toggle|activate|deactivate)\b""",
             RegexOption.IGNORE_CASE
         )
     }

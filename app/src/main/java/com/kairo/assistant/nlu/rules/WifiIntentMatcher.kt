@@ -10,7 +10,7 @@ class WifiIntentMatcher : IntentMatcher {
 
     companion object {
         private val PATTERN = Regex(
-            """(?:\b(?:turn\s+|switch\s+)?(?:on|off|enable|disable|toggle|activate|deactivate)\b.*\b(?:wifi|wi-fi)\b)|\b(?:wifi|wi-fi)\b.*\b(?:on|off|enable|disable|toggle|activate|deactivate)\b""",
+            """(?:\b(?:turn\s+|switch\s+)?(?:on|off|enable|disable|toggle|activate|deactivate)\b.*\b(?:wifi|wi-fi|wi\s*fi|internet\s+connection)\b)|\b(?:wifi|wi-fi|wi\s*fi|internet\s+connection)\b.*\b(?:on|off|enable|disable|toggle|activate|deactivate)\b""",
             RegexOption.IGNORE_CASE
         )
     }

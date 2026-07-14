@@ -19,7 +19,13 @@ class ActionDispatcher {
         IntentType.GOOGLE_SEARCH to GoogleSearchExecutor(),
         IntentType.BING_SEARCH to BingSearchExecutor(),
         IntentType.TOGGLE_TORCH to TorchExecutor(),
-        IntentType.LOCK_DEVICE to LockDeviceExecutor()
+        IntentType.LOCK_DEVICE to LockDeviceExecutor(),
+        IntentType.TOGGLE_HOTSPOT to HotspotExecutor(),
+        IntentType.MEDIA_PLAY to MediaExecutor(),
+        IntentType.MEDIA_PAUSE to MediaExecutor(),
+        IntentType.VOLUME_UP to VolumeExecutor(),
+        IntentType.VOLUME_DOWN to VolumeExecutor(),
+        IntentType.SET_VOLUME to VolumeExecutor()
     )
 
     fun dispatch(command: ParsedCommand, context: Context): ActionResult {

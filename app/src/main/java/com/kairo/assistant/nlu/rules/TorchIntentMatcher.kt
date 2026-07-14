@@ -21,7 +21,8 @@ class TorchIntentMatcher : IntentMatcher {
 
         val action = if (input.contains("off", ignoreCase = true) || 
             input.contains("disable", ignoreCase = true) || 
-            input.contains("deactivate", ignoreCase = true)) "off" else "on"
+            input.contains("deactivate", ignoreCase = true) ||
+            input.contains("stop", ignoreCase = true)) "off" else "on"
 
         return ParsedCommand(
             intent = intentType,

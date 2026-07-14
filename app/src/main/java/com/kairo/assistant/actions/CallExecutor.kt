@@ -7,13 +7,15 @@ import android.net.Uri
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
 import android.util.Log
+import android.media.AudioManager
+import android.os.Build
 import com.kairo.assistant.nlu.models.ParsedCommand
 
 class CallExecutor : ActionExecutor {
 
     override fun execute(command: ParsedCommand, context: Context): ActionResult {
         val rawExtra = command.extra
-        if (rawExtra.isNullOrBlank() || rawExtra == "not_found") {
+        if (rawExtra.isNullOrBlank() || rawExtra.startsWith("not_found")) {
             return ActionResult(false, "I couldn't find a contact named ${command.target ?: "that user"}.")
         }
         if (rawExtra.startsWith("disambiguate")) {

@@ -19,6 +19,9 @@ import com.kairo.assistant.nlu.rules.InternetIntentMatcher
 import com.kairo.assistant.nlu.rules.GreetingIntentMatcher
 import com.kairo.assistant.nlu.rules.ExitIntentMatcher
 import com.kairo.assistant.nlu.rules.AirplaneModeIntentMatcher
+import com.kairo.assistant.nlu.rules.HotspotIntentMatcher
+import com.kairo.assistant.nlu.rules.MediaIntentMatcher
+import com.kairo.assistant.nlu.rules.VolumeIntentMatcher
 
 /**
  * Iterates through a prioritised list of rule-based matchers and returns the
@@ -44,7 +47,10 @@ class RuleBasedParser(
         BluetoothIntentMatcher(),
         WifiIntentMatcher(),
         InternetIntentMatcher(),
-        AirplaneModeIntentMatcher()
+        AirplaneModeIntentMatcher(),
+        HotspotIntentMatcher(),
+        MediaIntentMatcher(),
+        VolumeIntentMatcher()
     )
 
     /**

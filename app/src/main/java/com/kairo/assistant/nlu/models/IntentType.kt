@@ -19,5 +19,11 @@ enum class IntentType {
     LOCK_DEVICE,
     CONVERSATION,
     EXIT,
+    TOGGLE_HOTSPOT,
+    MEDIA_PLAY,
+    MEDIA_PAUSE,
+    VOLUME_UP,
+    VOLUME_DOWN,
+    SET_VOLUME,
     UNKNOWN
 }
