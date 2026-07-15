@@ -3,35 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Read SIM cards / carrier names for dual-SIM support -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-
-    <!-- Internet access for model downloading and web fallback searches -->
-    <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Microphone for voice input -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-    <!-- Contact lookup for "call mom", "text dad" -->
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
-
-    <!-- Direct calling (hands-free, no dialer UI) -->
-    <uses-permission android:name="android.permission.CALL_PHONE" />
-
-    <!-- Direct SMS sending -->
-    <uses-permission android:name="android.permission.SEND_SMS" />
-
-    <!-- Alarm setting (normal permission, install-time only) -->
-    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
-
-    <!-- List installed apps on Android 11+ -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission" />
-
-    <!-- Wi-Fi state access and toggle permissions -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" /> <!-- Internet access for model downloading and web fallback searches -->
+    <uses-permission android:name="android.permission.INTERNET" /> <!-- Microphone for voice input -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" /> <!-- Contact lookup for "call mom", "text dad" -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" /> <!-- Direct calling (hands-free, no dialer UI) -->
+    <uses-permission android:name="android.permission.CALL_PHONE" /> <!-- Direct SMS sending -->
+    <uses-permission android:name="android.permission.SEND_SMS" /> <!-- Alarm setting (normal permission, install-time only) -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" /> <!-- List installed apps on Android 11+ -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" /> <!-- Wi-Fi state access and toggle permissions -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-
-    <!-- Foreground Service permissions -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" /> <!-- Foreground Service permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -40,13 +23,16 @@
 
     <application
         android:name=".KairoApplication"
-        android:largeHeap="true"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:largeHeap="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.Kairo"
         tools:targetApi="35">
+        <profileable
+            android:shell="true"
+            tools:targetApi="29" />
 
         <activity
             android:name=".MainActivity"
@@ -55,65 +41,61 @@
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST" />
+
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
-
         <receiver
             android:name=".receiver.KairoDeviceAdminReceiver"
-            android:label="@string/device_admin_label"
             android:description="@string/device_admin_description"
-            android:permission="android.permission.BIND_DEVICE_ADMIN"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/device_admin_label"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data
                 android:name="android.app.device_admin"
                 android:resource="@xml/device_admin_policies" />
+
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
-        </receiver>
-
-        <!-- Voice Interaction Service (System Voice Assistant) -->
+        </receiver> <!-- Voice Interaction Service (System Voice Assistant) -->
         <service
             android:name=".service.KairoAssistantService"
+            android:exported="true"
             android:label="Kairo"
-            android:permission="android.permission.BIND_VOICE_INTERACTION"
-            android:exported="true">
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
             <intent-filter>
                 <action android:name="android.service.voice.VoiceInteractionService" />
             </intent-filter>
+
             <meta-data
                 android:name="android.voice_interaction"
                 android:resource="@xml/voice_interaction_service" />
         </service>
-
         <service
             android:name=".service.KairoAssistantSessionService"
-            android:permission="android.permission.BIND_VOICE_INTERACTION"
-            android:exported="true" />
-
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION" />
         <service
             android:name=".service.KairoRecognitionService"
+            android:exported="true"
             android:label="Kairo Speech Recognition"
-            android:permission="android.permission.BIND_RECOGNITION_SERVICE"
-            android:exported="true">
+            android:permission="android.permission.BIND_RECOGNITION_SERVICE">
             <intent-filter>
                 <action android:name="android.speech.RecognitionService" />
             </intent-filter>
-        </service>
-
-        <!-- Kairo always-on wake word listener -->
+        </service> <!-- Kairo always-on wake word listener -->
         <service
             android:name=".service.HeyKairoListenerService"
-            android:label="Kairo Listener"
+            android:exported="false"
             android:foregroundServiceType="microphone"
-            android:exported="false" />
-
+            android:label="Kairo Listener" />
     </application>
 
 </manifest>

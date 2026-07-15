@@ -39,15 +39,22 @@ class WakeWordDetector(private val context: Context) {
         this.listener = listener
     }
 
+    private val logLock = Any()
+
     private fun logToFile(message: String, throwable: Throwable? = null) {
-        try {
-            val file = java.io.File(context.filesDir, "wakeword_logs.txt")
-            val logText = "[${java.util.Date()}] [Detector] $message\n" + 
-                    (throwable?.stackTraceToString() ?: "") + "\n"
-            file.appendText(logText)
-            Log.d(TAG, "Log written: $message")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to write log to file", e)
+        synchronized(logLock) {
+            try {
+                val file = java.io.File(context.filesDir, LOG_FILE_NAME)
+                if (file.exists() && file.length() > 50 * 1024) { // Capped at 50 KB
+                    file.writeText("[Log Rotated]\n")
+                }
+                val logText = "[${java.util.Date()}] [Detector] $message\n" + 
+                        (throwable?.stackTraceToString() ?: "") + "\n"
+                file.appendText(logText)
+                Log.d(TAG, message)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to write log to file", e)
+            }
         }
     }
 
@@ -101,57 +108,62 @@ class WakeWordDetector(private val context: Context) {
             )
         )
 
-        try {
-            logToFile("Initializing WakeWordEngine...")
-            engine = WakeWordEngine(
-                context = context,
-                models = models,
-                detectionMode = DetectionMode.SINGLE_BEST,
-                detectionCooldownMs = 2000L,
-                scope = coroutineScope!!
-            )
+        coroutineScope?.launch(Dispatchers.Default) {
+            try {
+                logToFile("Initializing WakeWordEngine...")
+                val localEngine = WakeWordEngine(
+                    context = context,
+                    models = models,
+                    detectionMode = DetectionMode.SINGLE_BEST,
+                    detectionCooldownMs = 2000L,
+                    scope = this
+                )
+                engine = localEngine
 
-            // Start processing audio frames
-            logToFile("Starting WakeWordEngine...")
-            val startTime = System.currentTimeMillis()
-            engine?.start()
-            logToFile("OpenWakeWord engine started successfully")
- 
-            // Collect detections asynchronously
-            collectJob = coroutineScope?.launch {
-                try {
-                    engine?.detections?.collect { detection ->
-                        val elapsed = System.currentTimeMillis() - startTime
-                        if (elapsed < 2000L) {
-                            logToFile("Ignoring startup warm-up detection (elapsed: ${elapsed}ms): Score = ${detection.score}")
-                            return@collect
-                        }
-                        logToFile("🎤 Wake word detected! Model: ${detection.model.name}, Score: ${detection.score}")
-                        listener?.onWakeWordDetected(detection.model.name)
-                    }
-                } catch (e: Exception) {
-                    logToFile("Error inside detections flow collector", e)
-                }
-            }
- 
-            // Collect raw scores flow for debug diagnostics
-            scoresJob = coroutineScope?.launch {
-                try {
-                    engine?.scores?.collect { score ->
-                        val elapsed = System.currentTimeMillis() - startTime
-                        if (elapsed < 2000L) return@collect // Skip logging during warm-up
-                        if (score.score > 0.005f) {
-                            logToFile("Score update: ${score.model.name} confidence = ${score.score}")
-                        }
-                    }
-                } catch (e: Exception) {
-                    logToFile("Error inside scores flow collector", e)
-                }
-            }
+                // Start processing audio frames
+                logToFile("Starting WakeWordEngine...")
+                val startTime = System.currentTimeMillis()
+                localEngine.start()
+                logToFile("OpenWakeWord engine started successfully")
 
-        } catch (e: Throwable) {
-            logToFile("CRITICAL: Failed to initialize OpenWakeWord engine", e)
-            stop()
+                // Collect detections asynchronously
+                collectJob = launch {
+                    try {
+                        localEngine.detections.collect { detection ->
+                            val elapsed = System.currentTimeMillis() - startTime
+                            if (elapsed < 2000L) {
+                                logToFile("Ignoring startup warm-up detection (elapsed: ${elapsed}ms): Score = ${detection.score}")
+                                return@collect
+                            }
+                            logToFile("🎤 Wake word detected! Model: ${detection.model.name}, Score: ${detection.score}")
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                listener?.onWakeWordDetected(detection.model.name)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        logToFile("Error inside detections flow collector", e)
+                    }
+                }
+
+                // Collect raw scores flow for debug diagnostics
+                scoresJob = launch {
+                    try {
+                        localEngine.scores.collect { score ->
+                            val elapsed = System.currentTimeMillis() - startTime
+                            if (elapsed < 2000L) return@collect // Skip logging during warm-up
+                            if (score.score > 0.005f) {
+                                Log.d(TAG, "Score update: ${score.model.name} confidence = ${score.score}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error inside scores flow collector", e)
+                    }
+                }
+
+            } catch (e: Throwable) {
+                logToFile("CRITICAL: Failed to initialize OpenWakeWord engine", e)
+                stop()
+            }
         }
     }
 

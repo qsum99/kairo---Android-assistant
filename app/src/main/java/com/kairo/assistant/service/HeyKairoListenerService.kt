@@ -65,15 +65,22 @@ class HeyKairoListenerService : Service() {
     private var detector: WakeWordDetector? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
+    private val logLock = Any()
+
     private fun logToFile(message: String, throwable: Throwable? = null) {
-        try {
-            val file = java.io.File(filesDir, "wakeword_logs.txt")
-            val logText = "[${java.util.Date()}] [Service] $message\n" + 
-                    (throwable?.stackTraceToString() ?: "") + "\n"
-            file.appendText(logText)
-            Log.d(TAG, "Log written: $message")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to write log to file", e)
+        synchronized(logLock) {
+            try {
+                val file = java.io.File(filesDir, "wakeword_logs.txt")
+                if (file.exists() && file.length() > 50 * 1024) { // Capped at 50 KB
+                    file.writeText("[Log Rotated]\n")
+                }
+                val logText = "[${java.util.Date()}] [Service] $message\n" + 
+                        (throwable?.stackTraceToString() ?: "") + "\n"
+                file.appendText(logText)
+                Log.d(TAG, message)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to write log to file", e)
+            }
         }
     }
 
