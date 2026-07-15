@@ -64,24 +64,16 @@ class HeyKairoListenerService : Service() {
 
     private var detector: WakeWordDetector? = null
     private var wakeLock: PowerManager.WakeLock? = null
-    private val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
-
-    private val logLock = Any()
 
     private fun logToFile(message: String, throwable: Throwable? = null) {
-        synchronized(logLock) {
-            try {
-                val file = java.io.File(filesDir, "wakeword_logs.txt")
-                if (file.exists() && file.length() > 50 * 1024) { // Capped at 50 KB
-                    file.writeText("[Log Rotated]\n")
-                }
-                val logText = "[${java.util.Date()}] [Service] $message\n" + 
-                        (throwable?.stackTraceToString() ?: "") + "\n"
-                file.appendText(logText)
-                Log.d(TAG, message)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to write log to file", e)
-            }
+        try {
+            val file = java.io.File(filesDir, "wakeword_logs.txt")
+            val logText = "[${java.util.Date()}] [Service] $message\n" + 
+                    (throwable?.stackTraceToString() ?: "") + "\n"
+            file.appendText(logText)
+            Log.d(TAG, "Log written: $message")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to write log to file", e)
         }
     }
 
@@ -105,11 +97,6 @@ class HeyKairoListenerService : Service() {
         logToFile("Service onDestroy()")
         stopDetector()
         releaseWakeLock()
-        try {
-            executor.shutdown()
-        } catch (e: Exception) {
-            Log.w(TAG, "Error shutting down executor", e)
-        }
         super.onDestroy()
     }
 
@@ -131,7 +118,8 @@ class HeyKairoListenerService : Service() {
             }
         }
 
-        executor.execute {
+        // SpeechRecognizer requires main thread
+        android.os.Handler(mainLooper).post {
             logToFile("Calling detector.start()")
             detector?.start()
         }
@@ -139,7 +127,7 @@ class HeyKairoListenerService : Service() {
 
     private fun stopDetector() {
         logToFile("stopDetector() requested")
-        executor.execute {
+        android.os.Handler(mainLooper).post {
             detector?.stop()
             detector = null
         }
@@ -148,7 +136,7 @@ class HeyKairoListenerService : Service() {
     private fun onWakeWordDetected() {
         logToFile("onWakeWordDetected() inside service called")
         // Stop listening to release the mic before launching the activity
-        executor.execute {
+        android.os.Handler(mainLooper).post {
             detector?.stop()
         }
 
@@ -166,7 +154,7 @@ class HeyKairoListenerService : Service() {
         } catch (e: Exception) {
             logToFile("CRITICAL: Failed to launch MainActivity", e)
             // Restart detector since we failed to hand off
-            executor.execute {
+            android.os.Handler(mainLooper).post {
                 detector?.start()
             }
         }
@@ -177,12 +165,9 @@ class HeyKairoListenerService : Service() {
      * detector can resume listening.
      */
     fun resumeDetection() {
-        executor.execute {
+        android.os.Handler(mainLooper).post {
             if (detector == null) {
-                // startDetector needs to be run on main thread to create instance, but let's post it
-                android.os.Handler(mainLooper).post {
-                    startDetector()
-                }
+                startDetector()
             } else {
                 detector?.start()
             }
