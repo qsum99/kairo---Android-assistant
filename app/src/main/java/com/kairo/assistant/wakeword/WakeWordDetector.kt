@@ -108,62 +108,60 @@ class WakeWordDetector(private val context: Context) {
             )
         )
 
-        coroutineScope?.launch(Dispatchers.Default) {
-            try {
-                logToFile("Initializing WakeWordEngine...")
-                val localEngine = WakeWordEngine(
-                    context = context,
-                    models = models,
-                    detectionMode = DetectionMode.SINGLE_BEST,
-                    detectionCooldownMs = 2000L,
-                    scope = this
-                )
-                engine = localEngine
+        try {
+            logToFile("Initializing WakeWordEngine...")
+            val localEngine = WakeWordEngine(
+                context = context,
+                models = models,
+                detectionMode = DetectionMode.SINGLE_BEST,
+                detectionCooldownMs = 2000L,
+                scope = coroutineScope!!
+            )
+            engine = localEngine
 
-                // Start processing audio frames
-                logToFile("Starting WakeWordEngine...")
-                val startTime = System.currentTimeMillis()
-                localEngine.start()
-                logToFile("OpenWakeWord engine started successfully")
+            // Start processing audio frames
+            logToFile("Starting WakeWordEngine...")
+            val startTime = System.currentTimeMillis()
+            localEngine.start()
+            logToFile("OpenWakeWord engine started successfully")
 
-                // Collect detections asynchronously
-                collectJob = launch {
-                    try {
-                        localEngine.detections.collect { detection ->
-                            val elapsed = System.currentTimeMillis() - startTime
-                            if (elapsed < 2000L) {
-                                logToFile("Ignoring startup warm-up detection (elapsed: ${elapsed}ms): Score = ${detection.score}")
-                                return@collect
-                            }
-                            logToFile("🎤 Wake word detected! Model: ${detection.model.name}, Score: ${detection.score}")
-                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                listener?.onWakeWordDetected(detection.model.name)
-                            }
+            // Collect detections asynchronously
+            collectJob = coroutineScope?.launch {
+                try {
+                    localEngine.detections.collect { detection ->
+                        val elapsed = System.currentTimeMillis() - startTime
+                        if (elapsed < 2000L) {
+                            logToFile("Ignoring startup warm-up detection (elapsed: ${elapsed}ms): Score = ${detection.score}")
+                            return@collect
                         }
-                    } catch (e: Exception) {
-                        logToFile("Error inside detections flow collector", e)
-                    }
-                }
-
-                // Collect raw scores flow for debug diagnostics
-                scoresJob = launch {
-                    try {
-                        localEngine.scores.collect { score ->
-                            val elapsed = System.currentTimeMillis() - startTime
-                            if (elapsed < 2000L) return@collect // Skip logging during warm-up
-                            if (score.score > 0.005f) {
-                                Log.d(TAG, "Score update: ${score.model.name} confidence = ${score.score}")
-                            }
+                        logToFile("🎤 Wake word detected! Model: ${detection.model.name}, Score: ${detection.score}")
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            listener?.onWakeWordDetected(detection.model.name)
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error inside scores flow collector", e)
                     }
+                } catch (e: Exception) {
+                    logToFile("Error inside detections flow collector", e)
                 }
-
-            } catch (e: Throwable) {
-                logToFile("CRITICAL: Failed to initialize OpenWakeWord engine", e)
-                stop()
             }
+
+            // Collect raw scores flow for debug diagnostics
+            scoresJob = coroutineScope?.launch {
+                try {
+                    localEngine.scores.collect { score ->
+                        val elapsed = System.currentTimeMillis() - startTime
+                        if (elapsed < 2000L) return@collect // Skip logging during warm-up
+                        if (score.score > 0.005f) {
+                            Log.d(TAG, "Score update: ${score.model.name} confidence = ${score.score}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error inside scores flow collector", e)
+                }
+            }
+
+        } catch (e: Throwable) {
+            logToFile("CRITICAL: Failed to initialize OpenWakeWord engine", e)
+            stop()
         }
     }
 

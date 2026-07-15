@@ -64,6 +64,7 @@ class HeyKairoListenerService : Service() {
 
     private var detector: WakeWordDetector? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     private val logLock = Any()
 
@@ -104,6 +105,11 @@ class HeyKairoListenerService : Service() {
         logToFile("Service onDestroy()")
         stopDetector()
         releaseWakeLock()
+        try {
+            executor.shutdown()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error shutting down executor", e)
+        }
         super.onDestroy()
     }
 
@@ -125,8 +131,7 @@ class HeyKairoListenerService : Service() {
             }
         }
 
-        // SpeechRecognizer requires main thread
-        android.os.Handler(mainLooper).post {
+        executor.execute {
             logToFile("Calling detector.start()")
             detector?.start()
         }
@@ -134,7 +139,7 @@ class HeyKairoListenerService : Service() {
 
     private fun stopDetector() {
         logToFile("stopDetector() requested")
-        android.os.Handler(mainLooper).post {
+        executor.execute {
             detector?.stop()
             detector = null
         }
@@ -143,7 +148,7 @@ class HeyKairoListenerService : Service() {
     private fun onWakeWordDetected() {
         logToFile("onWakeWordDetected() inside service called")
         // Stop listening to release the mic before launching the activity
-        android.os.Handler(mainLooper).post {
+        executor.execute {
             detector?.stop()
         }
 
@@ -161,7 +166,7 @@ class HeyKairoListenerService : Service() {
         } catch (e: Exception) {
             logToFile("CRITICAL: Failed to launch MainActivity", e)
             // Restart detector since we failed to hand off
-            android.os.Handler(mainLooper).post {
+            executor.execute {
                 detector?.start()
             }
         }
@@ -172,9 +177,12 @@ class HeyKairoListenerService : Service() {
      * detector can resume listening.
      */
     fun resumeDetection() {
-        android.os.Handler(mainLooper).post {
+        executor.execute {
             if (detector == null) {
-                startDetector()
+                // startDetector needs to be run on main thread to create instance, but let's post it
+                android.os.Handler(mainLooper).post {
+                    startDetector()
+                }
             } else {
                 detector?.start()
             }
