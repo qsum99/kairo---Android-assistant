@@ -95,6 +95,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import kotlin.math.sin
 
 @Composable
@@ -745,6 +748,7 @@ fun HomeScreen(
                         // Right Settings slider gear
                         IconButton(
                             onClick = onSettingsClick,
+                            modifier = Modifier.semantics { contentDescription = "settings_button" },
                             colors = IconButtonDefaults.iconButtonColors(containerColor = KairoSurfaceVariant.copy(alpha = 0.5f))
                         ) {
                             Icon(

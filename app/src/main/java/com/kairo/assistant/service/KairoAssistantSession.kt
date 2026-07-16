@@ -24,7 +24,9 @@ class KairoAssistantSession(context: Context) : VoiceInteractionSession(context)
         try {
             val intent = Intent(context, com.kairo.assistant.MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                 putExtra("assistant_trigger", true)
             }
             context.startActivity(intent)

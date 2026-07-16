@@ -20,6 +20,13 @@ class BaselineProfileGenerator {
         packageName = "com.kairo.assistant",
         includeInStartupProfile = true
     ) {
+        // Grant permissions via adb shell to bypass PermissionScreen
+        device.executeShellCommand("pm grant com.kairo.assistant android.permission.RECORD_AUDIO")
+        device.executeShellCommand("pm grant com.kairo.assistant android.permission.READ_CONTACTS")
+        device.executeShellCommand("pm grant com.kairo.assistant android.permission.CALL_PHONE")
+        device.executeShellCommand("pm grant com.kairo.assistant android.permission.SEND_SMS")
+        device.executeShellCommand("pm grant com.kairo.assistant android.permission.READ_PHONE_STATE")
+        
         // Core user flows for startup
         pressHome()
         startActivityAndWait()

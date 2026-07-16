@@ -1,12 +1,14 @@
 package com.example.benchmark
 
 import androidx.benchmark.macro.FrameTimingMetric
+import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.Until
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,7 +27,8 @@ class ExampleStartupBenchmark {
         packageName = "com.kairo.assistant",
         metrics = listOf(StartupTimingMetric()),
         iterations = 5,
-        startupMode = StartupMode.COLD
+        startupMode = StartupMode.COLD,
+        setupBlock = { grantPermissions() }
     ) {
         pressHome()
         startActivityAndWait()
@@ -36,7 +39,8 @@ class ExampleStartupBenchmark {
         packageName = "com.kairo.assistant",
         metrics = listOf(StartupTimingMetric()),
         iterations = 5,
-        startupMode = StartupMode.WARM
+        startupMode = StartupMode.WARM,
+        setupBlock = { grantPermissions() }
     ) {
         pressHome()
         startActivityAndWait()
@@ -47,24 +51,61 @@ class ExampleStartupBenchmark {
         packageName = "com.kairo.assistant",
         metrics = listOf(FrameTimingMetric()),
         iterations = 3,
-        startupMode = StartupMode.WARM
+        startupMode = StartupMode.WARM,
+        setupBlock = {
+            grantPermissions()
+            pressHome()
+            startActivityAndWait()
+            device.waitForIdle()
+
+            // Handle onboarding if it appears
+            device.findObject(By.textContains("Grant"))?.click()
+            
+            // Navigate to Settings screen in the setup block so that the 
+            // measurement block focuses exclusively on scrolling performance.
+            // This also prevents the ephemeral Home screen from auto-closing during the trace.
+            if (!device.hasObject(By.text("Settings"))) {
+                val settingsBtn = device.wait(Until.findObject(By.desc("settings_button")), 5000)
+                    ?: device.findObject(By.desc("Settings"))
+                    ?: device.findObject(By.text("Settings"))
+                settingsBtn?.click()
+                device.wait(Until.hasObject(By.text("Settings")), 5000)
+            }
+        }
     ) {
-        pressHome()
-        startActivityAndWait()
+        // Measure scrolling performance on the Settings screen
+        val screenWidth = device.displayWidth
+        val screenHeight = device.displayHeight
 
-        // 1. Locate Settings button
-        val settingsBtn = device.findObject(By.desc("Settings"))
-            ?: device.findObject(By.text("Settings"))
-            ?: device.findObject(By.descContains("settings"))
-
-        settingsBtn?.click()
+        device.swipe(
+            screenWidth / 2,
+            (screenHeight * 0.8f).toInt(),
+            screenWidth / 2,
+            (screenHeight * 0.2f).toInt(),
+            60
+        )
         device.waitForIdle()
 
-        // 2. Locate scrollable list and scroll to test frame metrics
-        val scrollableList = device.findObject(By.scrollable(true))
-        scrollableList?.scroll(Direction.DOWN, 1.0f)
+        device.swipe(
+            screenWidth / 2,
+            (screenHeight * 0.2f).toInt(),
+            screenWidth / 2,
+            (screenHeight * 0.8f).toInt(),
+            60
+        )
         device.waitForIdle()
-        scrollableList?.scroll(Direction.UP, 1.0f)
-        device.waitForIdle()
+    }
+
+    private fun MacrobenchmarkScope.grantPermissions() {
+        val permissions = listOf(
+            "android.permission.RECORD_AUDIO",
+            "android.permission.READ_CONTACTS",
+            "android.permission.CALL_PHONE",
+            "android.permission.SEND_SMS",
+            "android.permission.READ_PHONE_STATE"
+        )
+        permissions.forEach { permission ->
+            device.executeShellCommand("pm grant com.kairo.assistant $permission")
+        }
     }
 }
