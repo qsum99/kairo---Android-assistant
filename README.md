@@ -4,11 +4,11 @@ Kairo is an intelligent voice assistant for Android, built using Jetpack Compose
 
 [![Download Kairo APK](https://img.shields.io/badge/Download-Kairo_APK-00E676?style=for-the-badge&logo=android&logoColor=white)](https://github.com/qsum99/kairo---Android-assistant/raw/main/app-v2.apk)
 
-### 📱 App Previews
+### 📱 Active Assistant Interface
 
-| App Launch Screen | Active Orbiter Screen |
-|:---:|:---:|
-| ![App Launch Screen](app_launch.jpg) | ![Active Orbiter Screen](orbiter.jpg) |
+<p align="center">
+  <img src="kairo_screenshot.jpg" alt="Kairo Active Assistant" width="360" />
+</p>
 
 ## How to Run the App
 
