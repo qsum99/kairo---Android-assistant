@@ -9,7 +9,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import com.kairo.assistant.service.HeyKairoListenerService
 import com.kairo.assistant.ui.KairoApp
 import com.kairo.assistant.ui.theme.KairoTheme
 import com.kairo.assistant.viewmodel.KairoViewModel
@@ -53,16 +52,6 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         configureLockScreenFlags()
-        // Stop wake word listener to avoid microphone conflict while the assistant is active
-        HeyKairoListenerService.stop(this)
-        Log.d("MainActivity", "Paused Hey Kairo listener (mic in use)")
-    }
-
-    override fun onStop() {
-        super.onStop()
-        // Restart wake word listener when the activity goes to background
-        HeyKairoListenerService.startIfEnabled(this)
-        Log.d("MainActivity", "Resumed Hey Kairo listener (activity backgrounded)")
     }
 
 

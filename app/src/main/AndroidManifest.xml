@@ -14,12 +14,8 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" /> <!-- Wi-Fi state access and toggle permissions -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" /> <!-- Foreground Service permissions -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:name=".KairoApplication"
@@ -91,12 +87,7 @@
             <intent-filter>
                 <action android:name="android.speech.RecognitionService" />
             </intent-filter>
-        </service> <!-- Kairo always-on wake word listener -->
-        <service
-            android:name=".service.HeyKairoListenerService"
-            android:exported="false"
-            android:foregroundServiceType="microphone"
-            android:label="Kairo Listener" />
+        </service> 
     </application>
 
 </manifest>

@@ -55,7 +55,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.kairo.assistant.service.HeyKairoListenerService
 import com.kairo.assistant.ui.theme.KairoAccent
 import com.kairo.assistant.ui.theme.KairoDarkBg
 import com.kairo.assistant.ui.theme.KairoOnSurface
@@ -94,8 +93,7 @@ fun SettingsScreen(
     LaunchedEffect(uiState.llmStatus) {
         isModelDownloaded = modelFile.exists()
     }
-    var heyKairoEnabled by remember { mutableStateOf(prefs.getBoolean(HeyKairoListenerService.PREF_ENABLED, false)) }
-    var wakeWordThreshold by remember { mutableStateOf(prefs.getFloat("wakeword_threshold", 0.90f)) }
+
 
     Scaffold(
         topBar = {
@@ -486,89 +484,6 @@ fun SettingsScreen(
                                 }
                             }
                         )
-                    }
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-
-                    // Kairo Wake Word
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Kairo Wake Word",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = KairoOnSurface
-                            )
-                            Text(
-                                text = "Say \"Kairo\" or \"Hey Kairo\" to launch the assistant hands-free",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoOnSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Switch(
-                            checked = heyKairoEnabled,
-                            onCheckedChange = { isChecked ->
-                                heyKairoEnabled = isChecked
-                                prefs.edit().putBoolean(HeyKairoListenerService.PREF_ENABLED, isChecked).apply()
-                                if (isChecked) {
-                                    HeyKairoListenerService.startIfEnabled(context)
-                                } else {
-                                    HeyKairoListenerService.stop(context)
-                                }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = KairoPrimary,
-                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
-                                uncheckedThumbColor = KairoOnSurfaceVariant,
-                                uncheckedTrackColor = KairoSurfaceVariant
-                            )
-                        )
-                    }
-
-                    if (heyKairoEnabled) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Sensitivity Threshold",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = KairoOnSurface
-                                )
-                                Text(
-                                    text = String.format("%.2f", wakeWordThreshold),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = KairoPrimary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            androidx.compose.material3.Slider(
-                                value = wakeWordThreshold,
-                                onValueChange = { newValue ->
-                                    wakeWordThreshold = newValue
-                                    prefs.edit().putFloat("wakeword_threshold", newValue).apply()
-                                },
-                                valueRange = 0.50f..0.98f,
-                                colors = androidx.compose.material3.SliderDefaults.colors(
-                                    thumbColor = KairoPrimary,
-                                    activeTrackColor = KairoPrimary,
-                                    inactiveTrackColor = KairoSurfaceVariant
-                                )
-                            )
-                            Text(
-                                text = "Higher threshold reduces false triggers. Toggle Kairo Wake Word switch OFF and ON to apply a new sensitivity.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = KairoOnSurfaceVariant
-                            )
-                        }
                     }
 
                     HorizontalDivider(

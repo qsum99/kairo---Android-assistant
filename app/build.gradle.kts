@@ -10,7 +10,7 @@ android {
     defaultConfig {
         applicationId = "com.kairo.assistant"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 39
         versionName = "1.4.1"
 
@@ -113,8 +113,6 @@ dependencies {
     // JSON parsing for LLM response parsing
     implementation("org.json:json:20240303")
 
-    // ONNX Runtime for on-device wake word ML inference
-    implementation("xyz.rementia:openwakeword:0.1.5")
     // Debug tooling
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
