@@ -13,6 +13,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+import androidx.benchmark.macro.CompilationMode
+
 /**
  * Android Macrobenchmark suite for Kairo.
  * Measures app startup performance and frame jank during navigation.
@@ -23,9 +25,10 @@ class ExampleStartupBenchmark {
     val benchmarkRule = MacrobenchmarkRule()
 
     @Test
-    fun startupCold() = benchmarkRule.measureRepeated(
+    fun startupColdCompilationNone() = benchmarkRule.measureRepeated(
         packageName = "com.kairo.assistant",
         metrics = listOf(StartupTimingMetric()),
+        compilationMode = CompilationMode.None(),
         iterations = 5,
         startupMode = StartupMode.COLD,
         setupBlock = { grantPermissions() }
@@ -35,9 +38,36 @@ class ExampleStartupBenchmark {
     }
 
     @Test
-    fun startupWarm() = benchmarkRule.measureRepeated(
+    fun startupColdCompilationBaselineProfile() = benchmarkRule.measureRepeated(
         packageName = "com.kairo.assistant",
         metrics = listOf(StartupTimingMetric()),
+        compilationMode = CompilationMode.Partial(),
+        iterations = 5,
+        startupMode = StartupMode.COLD,
+        setupBlock = { grantPermissions() }
+    ) {
+        pressHome()
+        startActivityAndWait()
+    }
+
+    @Test
+    fun startupWarmCompilationNone() = benchmarkRule.measureRepeated(
+        packageName = "com.kairo.assistant",
+        metrics = listOf(StartupTimingMetric()),
+        compilationMode = CompilationMode.None(),
+        iterations = 5,
+        startupMode = StartupMode.WARM,
+        setupBlock = { grantPermissions() }
+    ) {
+        pressHome()
+        startActivityAndWait()
+    }
+
+    @Test
+    fun startupWarmCompilationBaselineProfile() = benchmarkRule.measureRepeated(
+        packageName = "com.kairo.assistant",
+        metrics = listOf(StartupTimingMetric()),
+        compilationMode = CompilationMode.Partial(),
         iterations = 5,
         startupMode = StartupMode.WARM,
         setupBlock = { grantPermissions() }
