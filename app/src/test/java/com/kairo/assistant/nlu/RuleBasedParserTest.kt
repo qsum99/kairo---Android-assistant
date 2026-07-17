@@ -265,6 +265,72 @@ class RuleBasedParserTest {
     }
 
     @Test
+    fun testGreetingIntentMatching() {
+        val command = parser.tryMatch("hello")
+        assertEquals(IntentType.CONVERSATION, command.intent)
+        val possibleResponses = listOf(
+            "Hello! How can I help you today?",
+            "Hi there! What can I do for you?",
+            "Hey! How is it going?",
+            "Hello! Kairo is here and ready to help.",
+            "Hey! Kairo is listening, what do you need?",
+            "What's up! How can I assist you today?"
+        )
+        assertTrue(command.extra in possibleResponses)
+    }
+
+    @Test
+    fun testExitIntentMatching() {
+        val command = parser.tryMatch("goodbye")
+        assertEquals(IntentType.EXIT, command.intent)
+    }
+
+    @Test
+    fun testHotspotIntentMatching() {
+        val command1 = parser.tryMatch("turn on hotspot")
+        assertEquals(IntentType.TOGGLE_HOTSPOT, command1.intent)
+        assertEquals("on", command1.target)
+
+        val command2 = parser.tryMatch("disable personal hotspot")
+        assertEquals(IntentType.TOGGLE_HOTSPOT, command2.intent)
+        assertEquals("off", command2.target)
+    }
+
+    @Test
+    fun testMediaIntentMatching() {
+        val command1 = parser.tryMatch("play music")
+        assertEquals(IntentType.MEDIA_PLAY, command1.intent)
+        assertEquals("play", command1.target)
+
+        val command2 = parser.tryMatch("pause song")
+        assertEquals(IntentType.MEDIA_PAUSE, command2.intent)
+        assertEquals("pause", command2.target)
+    }
+
+    @Test
+    fun testVolumeIntentMatching() {
+        val command1 = parser.tryMatch("volume up")
+        assertEquals(IntentType.VOLUME_UP, command1.intent)
+        assertEquals("up", command1.target)
+
+        val command2 = parser.tryMatch("make it quieter")
+        assertEquals(IntentType.VOLUME_DOWN, command2.intent)
+        assertEquals("down", command2.target)
+
+        val command3 = parser.tryMatch("increase the volume to 80%")
+        assertEquals(IntentType.SET_VOLUME, command3.intent)
+        assertEquals("80", command3.target)
+
+        val command4 = parser.tryMatch("reduse to 0%")
+        assertEquals(IntentType.SET_VOLUME, command4.intent)
+        assertEquals("0", command4.target)
+
+        val command5 = parser.tryMatch("volume 50")
+        assertEquals(IntentType.SET_VOLUME, command5.intent)
+        assertEquals("50", command5.target)
+    }
+
+    @Test
     fun testUnknownIntentMatching() {
         val command = parser.tryMatch("what is the weather today")
         assertEquals(IntentType.UNKNOWN, command.intent)

@@ -20,14 +20,8 @@ class InternetIntentMatcher : IntentMatcher {
         val match = PATTERN.find(input) ?: return null
 
         val action = when {
-            input.contains("on", ignoreCase = true) || 
-            input.contains("enable", ignoreCase = true) ||
-            input.contains("activate", ignoreCase = true) -> "on"
-            
-            input.contains("off", ignoreCase = true) || 
-            input.contains("disable", ignoreCase = true) ||
-            input.contains("deactivate", ignoreCase = true) -> "off"
-            
+            input.contains(Regex("\\b(?:on|enable|activate)\\b", RegexOption.IGNORE_CASE)) -> "on"
+            input.contains(Regex("\\b(?:off|disable|deactivate)\\b", RegexOption.IGNORE_CASE)) -> "off"
             else -> "toggle"
         }
 
