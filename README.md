@@ -1,42 +1,61 @@
 # Kairo - Android Assistant
 
-Kairo is an Android application developed to assist users. This project contains the source code for the Android app.
+Kairo is an intelligent voice assistant for Android, built using Jetpack Compose, Kotlin Coroutines, and local on-device NLU/LLM inference.
+
+![Kairo Assistant UI Mockup](screenshot.png)
 
 ## How to Run the App
 
-It's important to clarify: the built-in Gemini agent in Android Studio is a chat assistant for writing code. **It cannot run the app, control the GUI, or create emulators.**
+The fastest way to see the app in action is to install the pre-compiled, highly-optimized release APK directly on your Android device.
 
-The fastest way to see the app in action is to install the pre-compiled APK directly on your Android device.
+### 🚀 Fast Install: Pre-Compiled Release APK (1 Minute)
 
-### The Fastest Method: Install APK on Phone (1 Minute)
+Since the app has been built and compiled with Baseline Profile pre-optimization rules, the final APK is ready:
 
-Since the app has already been compiled, the installation package (APK) is ready:
-
-1. **Locate the file** on your computer: 
-   `/home/blue/projects/kairo---Android-assistant/app/build/outputs/apk/debug/app-debug.apk`
-2. **Send the file** to your phone (via USB, Google Drive, email, or messaging apps).
-3. **Open the file** on your phone and tap **Install**. 
-   *Note: You may need to allow "Install from Unknown Sources" in your phone's settings or file manager.*
+1. **Locate the APK file** in the project root:
+   * **[app-v2.apk](app-v2.apk)**
+2. **Send the file** to your Android phone (via USB, Google Drive, email, etc.).
+3. **Open the file** on your phone and tap **Install**.
+   *(Note: You may need to allow "Install from Unknown Sources" in your phone's settings or file manager.)*
 4. **Launch Kairo** and start testing!
 
 ---
 
-### Running via Android Studio (Emulator or USB Debugging)
+### 💻 Running via Android Studio (Emulator or USB Debugging)
 
-If you prefer to run the app from the source code using an emulator:
+If you prefer to run the app from source code using an emulator or directly via USB debugging:
 
 1. **Open Device Manager**:
-   - Click the **hamburger menu** (three lines `☰`) at the top-left of Android Studio.
-   - Navigate to **Tools** -> **Device Manager**.
+   * Click the **hamburger menu** (three lines `☰`) at the top-left of Android Studio.
+   * Navigate to **Tools** -> **Device Manager**.
 2. **Create a Virtual Device**:
-   - Click **Create Device** and use these recommended settings for the best experience:
-     - **Category**: `Phone`
-     - **Device Name**: **`Pixel 8`** or **`Pixel 7`** (Select one with the **Play Store icon**, as the app requires Google Play Services for speech features).
-     - **System Image**: Choose **`VanillaIceCream`** (API 35, Android 15.0) or **`UpsideDownCake`** (API 34, Android 14.0) from the **Recommended** tab.
-     - **ABI**: **`x86_64`**
-   - Click **Finish** to create the device.
+   * Click **Create Device** and use these recommended settings:
+     * **Category**: `Phone`
+     * **Device Name**: **`Pixel 8`** or **`Pixel 7`** (Select one with the **Play Store icon**, as the app requires Google Play Services for speech features).
+     * **System Image**: Choose **`VanillaIceCream`** (API 35, Android 15.0) or **`UpsideDownCake`** (API 34, Android 14.0) from the **Recommended** tab.
+     * **ABI**: **`x86_64`**
+   * Click **Finish** to create the device.
 3. **Run the App**:
-   - Select your new device from the dropdown in the top toolbar (e.g., `Pixel 8 API 35`).
-   - Click the green **Run** button (play icon) to launch **Kairo**!
+   * Select your device from the dropdown in the top toolbar (e.g., `Pixel 8 API 35`).
+   * Click the green **Run** button (play icon) to launch **Kairo**!
 
-Alternatively, you can enable **USB Debugging** on your physical Android phone, connect it to your computer, and it will appear as a target device in Android Studio.
+Alternatively, you can enable **USB Debugging** on your physical Android phone, connect it to your computer, and run it directly.
+
+---
+
+### 🧪 Verification & Testing
+
+Kairo includes a fully automated verification pipeline covering NLU parsers, Compose UI, and Macrobenchmarks:
+
+* **Unit Testing**: Runs 50 local tests verifying matching algorithms and action executors.
+  ```bash
+  ./gradlew :app:testDebugUnitTest
+  ```
+* **Compose UI Testing**: Verifies dynamic UI state changes and interactive visualizer components on a connected device.
+  ```bash
+  ./gradlew :app:connectedAndroidTest
+  ```
+* **Performance Macrobenchmarks**: Measures launch latencies and frame jank under varying compilation profiles.
+  ```bash
+  ./gradlew :benchmark:connectedBenchmarkAndroidTest
+  ```
