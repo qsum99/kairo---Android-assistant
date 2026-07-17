@@ -2,7 +2,11 @@
 
 Kairo is an intelligent voice assistant for Android, built using Jetpack Compose, Kotlin Coroutines, and local on-device NLU/LLM inference.
 
-![Kairo Assistant UI Mockup](screenshot.png)
+### 📱 App Previews
+
+| App Launch Screen | Active Orbiter Screen |
+|:---:|:---:|
+| ![App Launch Screen](app_launch.jpg) | ![Active Orbiter Screen](orbiter.jpg) |
 
 ## How to Run the App
 
@@ -40,22 +44,3 @@ If you prefer to run the app from source code using an emulator or directly via 
    * Click the green **Run** button (play icon) to launch **Kairo**!
 
 Alternatively, you can enable **USB Debugging** on your physical Android phone, connect it to your computer, and run it directly.
-
----
-
-### 🧪 Verification & Testing
-
-Kairo includes a fully automated verification pipeline covering NLU parsers, Compose UI, and Macrobenchmarks:
-
-* **Unit Testing**: Runs 50 local tests verifying matching algorithms and action executors.
-  ```bash
-  ./gradlew :app:testDebugUnitTest
-  ```
-* **Compose UI Testing**: Verifies dynamic UI state changes and interactive visualizer components on a connected device.
-  ```bash
-  ./gradlew :app:connectedAndroidTest
-  ```
-* **Performance Macrobenchmarks**: Measures launch latencies and frame jank under varying compilation profiles.
-  ```bash
-  ./gradlew :benchmark:connectedBenchmarkAndroidTest
-  ```
