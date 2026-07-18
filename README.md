@@ -29,6 +29,18 @@ Since the app has been built and compiled with Baseline Profile pre-optimization
    *(Note: You may need to allow "Install from Unknown Sources" in your phone's settings or file manager.)*
 4. **Launch Kairo** and start testing!
 
+#### 🛡️ Google Play Protect Installation Note
+
+Since Kairo is a sideloaded assistant app requesting system permissions (Calling, SMS, Device Admin), Google Play Protect may inspect or flag the package during sideloading. If installation is blocked or fails:
+
+1. **Uninstall any old version** of Kairo on your phone first (`Settings` -> `Apps` -> `Kairo` -> `Uninstall`).
+2. Open the **Google Play Store** app.
+3. Tap your **Profile Icon** (top right corner) -> Select **Play Protect**.
+4. Tap the **Settings Gear ⚙️** icon in the top right corner.
+5. Temporarily disable **"Scan apps with Play Protect"**.
+6. Open **`app-v2.apk`** and complete the installation.
+7. Turn **"Scan apps with Play Protect"** back ON once installed.
+
 ---
 
 ### 💻 Running via Android Studio (Emulator or USB Debugging)
