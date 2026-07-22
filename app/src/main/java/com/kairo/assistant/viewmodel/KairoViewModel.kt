@@ -103,6 +103,9 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        // Pre-warm SpeechToTextManager to bind Google Speech Services IPC immediately on launch
+        sttManager.prewarm()
+
         // Asynchronously pre-load contacts and apps in background to prevent blocking Main thread
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -264,6 +267,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        val ttsWasSpeaking = tts.isSpeaking()
         tts.stop() // Silence active voice feedback immediately before activating microphone
         _uiState.update {
             it.copy(
@@ -273,7 +277,9 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch(Dispatchers.Main) {
-            kotlinx.coroutines.delay(450) // Ensure hardware audio device handoff completes
+            if (ttsWasSpeaking) {
+                kotlinx.coroutines.delay(50) // Small 50ms buffer only if TTS was actively speaking
+            }
             sttManager.startListening(
                 onResult = { text ->
                     Log.d(TAG, "STT result: $text")

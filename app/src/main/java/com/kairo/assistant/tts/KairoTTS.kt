@@ -110,6 +110,10 @@ class KairoTTS(private val context: Context) {
         tts?.stop()
     }
 
+    fun isSpeaking(): Boolean {
+        return tts?.isSpeaking == true
+    }
+
     fun shutdown() {
         tts?.shutdown()
     }

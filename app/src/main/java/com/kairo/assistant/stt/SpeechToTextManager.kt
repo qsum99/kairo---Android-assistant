@@ -16,14 +16,28 @@ class SpeechToTextManager(private val context: Context) {
     private var speechRecognizer: SpeechRecognizer? = null
     private var isCurrentlyListening = false
 
+    init {
+        prewarm()
+    }
+
+    fun prewarm() {
+        if (speechRecognizer == null) {
+            try {
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            } catch (e: Exception) {
+                Log.w("SpeechToTextManager", "Error pre-warming SpeechRecognizer", e)
+            }
+        }
+    }
+
     fun startListening(
         onResult: (String) -> Unit,
         onPartialResult: (String) -> Unit,
         onError: (String) -> Unit
     ) {
-        // Reuse the recognizer instance if it exists, otherwise create it
+        // Ensure recognizer instance exists
         if (speechRecognizer == null) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            prewarm()
         } else {
             try {
                 speechRecognizer?.cancel()
