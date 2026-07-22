@@ -276,10 +276,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
-        viewModelScope.launch(Dispatchers.Main) {
-            if (ttsWasSpeaking) {
-                kotlinx.coroutines.delay(50) // Small 50ms buffer only if TTS was actively speaking
-            }
+        val startStt = {
             sttManager.startListening(
                 onResult = { text ->
                     Log.d(TAG, "STT result: $text")
@@ -343,6 +340,15 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             )
+        }
+
+        if (ttsWasSpeaking) {
+            viewModelScope.launch(Dispatchers.Main) {
+                kotlinx.coroutines.delay(50)
+                startStt()
+            }
+        } else {
+            startStt()
         }
     }
 

@@ -38,7 +38,7 @@ class SpeechToTextManager(private val context: Context) {
         // Ensure recognizer instance exists
         if (speechRecognizer == null) {
             prewarm()
-        } else {
+        } else if (isCurrentlyListening) {
             try {
                 speechRecognizer?.cancel()
             } catch (e: Exception) {
