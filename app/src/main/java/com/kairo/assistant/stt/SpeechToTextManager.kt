@@ -35,15 +35,14 @@ class SpeechToTextManager(private val context: Context) {
         onPartialResult: (String) -> Unit,
         onError: (String) -> Unit
     ) {
+        if (isCurrentlyListening) {
+            Log.d("SpeechToTextManager", "Already listening — ignoring redundant startListening request")
+            return
+        }
+
         // Ensure recognizer instance exists
         if (speechRecognizer == null) {
             prewarm()
-        } else if (isCurrentlyListening) {
-            try {
-                speechRecognizer?.cancel()
-            } catch (e: Exception) {
-                Log.w("SpeechToTextManager", "Error cancelling active recognition", e)
-            }
         }
 
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {

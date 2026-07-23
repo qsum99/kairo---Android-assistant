@@ -252,6 +252,9 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun startListening() {
+        if (_uiState.value.status == AssistantStatus.LISTENING || sttManager.isListening()) {
+            return
+        }
         isStoppingIntentionally = false
         val prefs = getApplication<Application>().getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
         val micMuted = prefs.getBoolean("mic_muted", false)
@@ -758,6 +761,14 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val isImmediateExitIntent = result.success && (
+            intentType == IntentType.CALL ||
+            intentType == IntentType.OPEN_APP ||
+            intentType == IntentType.OPEN_SETTINGS ||
+            intentType == IntentType.SET_ALARM ||
+            intentType == IntentType.GOOGLE_SEARCH ||
+            intentType == IntentType.BING_SEARCH ||
+            intentType == IntentType.EXIT ||
+            result.message.startsWith("Calling") || 
             result.message.startsWith("Opening") || 
             result.message.startsWith("Searching") || 
             result.message.startsWith("Bye") || 
@@ -775,8 +786,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
-        // Only auto-exit for explicit exits or when launching an external activity (where the overlay would block the app)
-        val shouldAutoExit = when (intentType) {
+        val shouldAutoExit = isImmediateExitIntent || when (intentType) {
             IntentType.EXIT,
             IntentType.OPEN_APP,
             IntentType.OPEN_SETTINGS,
@@ -787,7 +797,12 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             else -> false
         }
 
-        if (!shouldAutoExit) {
+        if (isImmediateExitIntent) {
+            // Immediately mark exit so the activity finishes cleanly while handing off to external intent (e.g. Phone Call / App)
+            _uiState.update {
+                it.copy(status = AssistantStatus.IDLE, shouldExit = true)
+            }
+        } else if (!shouldAutoExit) {
             viewModelScope.launch(Dispatchers.Main) {
                 tts.speak(result.message) {
                     viewModelScope.launch(Dispatchers.Main) {
@@ -799,49 +814,10 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
-        } else if (isImmediateExitIntent) {
-            viewModelScope.launch(Dispatchers.Main) {
-                tts.speak(result.message) {
-                    viewModelScope.launch(Dispatchers.Main) {
-                        _uiState.update {
-                            if (it.status == AssistantStatus.SPEAKING) {
-                                it.copy(status = AssistantStatus.IDLE, shouldExit = true)
-                            } else it
-                        }
-                    }
-                }
-            }
         } else {
             viewModelScope.launch(Dispatchers.Main) {
-                var speechCompleted = false
-                var minTimeElapsed = false
-
-                val triggerExit = {
-                    if (speechCompleted && minTimeElapsed) {
-                        _uiState.update {
-                            if (it.status == AssistantStatus.SPEAKING) {
-                                it.copy(status = AssistantStatus.IDLE, shouldExit = true)
-                            } else it
-                        }
-                    }
-                }
-
-                // Minimum screen display duration of 3 seconds to allow reading
-                viewModelScope.launch(Dispatchers.IO) {
-                    kotlinx.coroutines.delay(3000)
-                    minTimeElapsed = true
-                    viewModelScope.launch(Dispatchers.Main) {
-                        triggerExit()
-                    }
-                }
-
-                // Speak and wait for speech completion + 1 second post-speech buffer
-                tts.speak(result.message) {
-                    viewModelScope.launch(Dispatchers.Main) {
-                        kotlinx.coroutines.delay(1000)
-                        speechCompleted = true
-                        triggerExit()
-                    }
+                _uiState.update {
+                    it.copy(status = AssistantStatus.IDLE, shouldExit = true)
                 }
             }
         }
@@ -870,7 +846,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startListeningAutomatic() {
-        if (_uiState.value.status != AssistantStatus.LISTENING) {
+        if (_uiState.value.status != AssistantStatus.LISTENING && !sttManager.isListening()) {
             onMicButtonClicked()
         }
     }
