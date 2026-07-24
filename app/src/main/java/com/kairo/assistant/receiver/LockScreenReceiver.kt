@@ -1,9 +1,11 @@
 package com.kairo.assistant.receiver
 
+import android.app.ActivityOptions
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import com.kairo.assistant.ui.LockScreenLauncherActivity
 
@@ -31,7 +33,18 @@ class LockScreenReceiver : BroadcastReceiver() {
                                 Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
                                 Intent.FLAG_ACTIVITY_SINGLE_TOP
                     }
-                    context.startActivity(launchIntent)
+
+                    val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        ActivityOptions.makeBasic().apply {
+                            setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                        }.toBundle()
+                    } else null
+
+                    if (options != null) {
+                        context.startActivity(launchIntent, options)
+                    } else {
+                        context.startActivity(launchIntent)
+                    }
                     Log.d("LockScreenReceiver", "Launched LockScreenLauncherActivity over lock screen")
                 } catch (e: Exception) {
                     Log.e("LockScreenReceiver", "Failed to launch LockScreenLauncherActivity", e)

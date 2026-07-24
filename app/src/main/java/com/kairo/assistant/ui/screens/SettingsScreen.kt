@@ -400,6 +400,35 @@ fun SettingsScreen(
                         )
                     }
 
+                    if (allowOnLockScreen) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent("android.settings.LOCK_SCREEN_SETTINGS")
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    try {
+                                        val intent = Intent(android.provider.Settings.ACTION_SETTINGS)
+                                        context.startActivity(intent)
+                                    } catch (e2: Exception) {
+                                        Log.e("SettingsScreen", "Failed to open lock screen settings", e2)
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = KairoSurfaceVariant),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "⚙️ Configure Phone Lock Screen Shortcuts",
+                                color = KairoAccent,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
                     HorizontalDivider(
                         color = KairoSurfaceVariant,
                         modifier = Modifier.padding(vertical = 12.dp)

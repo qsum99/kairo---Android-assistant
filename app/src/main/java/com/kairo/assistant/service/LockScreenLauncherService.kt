@@ -85,10 +85,11 @@ class LockScreenLauncherService : Service() {
             val channel = NotificationChannel(
                 channelId,
                 "Kairo Lock Screen Launcher",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Displays floating launch button on lock screen"
-                setShowBadge(false)
+                setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -102,13 +103,14 @@ class LockScreenLauncherService : Service() {
         )
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Kairo Lock Screen Assistant")
-            .setContentText("Tap floating round button on lock screen to activate Kairo")
+            .setContentTitle("Kairo Voice Assistant")
+            .setContentText("Tap below to activate Kairo on Lock Screen")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentIntent(pendingIntent)
+            .addAction(android.R.drawable.ic_btn_speak_now, "🎙️ LAUNCH KAIRO", pendingIntent)
             .setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
         startForeground(NOTIFICATION_ID, notification)
