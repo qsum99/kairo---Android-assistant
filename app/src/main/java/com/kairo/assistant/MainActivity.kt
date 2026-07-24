@@ -9,8 +9,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import android.provider.Settings
-import com.kairo.assistant.service.LockScreenLauncherService
 import com.kairo.assistant.ui.KairoApp
 import com.kairo.assistant.ui.theme.KairoTheme
 import com.kairo.assistant.viewmodel.KairoViewModel
@@ -30,8 +28,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         configureLockScreenFlags()
 
-
-
         // Always start listening on launch (manual or assistant trigger)
         viewModel.startListeningAutomatic()
 
@@ -49,15 +45,11 @@ class MainActivity : ComponentActivity() {
         viewModel.startListeningAutomatic()
     }
 
-
-
     override fun onResume() {
         super.onResume()
         configureLockScreenFlags()
         viewModel.startListeningAutomatic()
     }
-
-
 
     private fun configureLockScreenFlags() {
         val prefs = getSharedPreferences("kairo_prefs", MODE_PRIVATE)
@@ -66,39 +58,26 @@ class MainActivity : ComponentActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 setShowWhenLocked(true)
                 setTurnScreenOn(true)
-            } else {
-                @Suppress("DEPRECATION")
-                window.addFlags(
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                )
             }
-
-            if (Settings.canDrawOverlays(this)) {
-                LockScreenLauncherService.start(this)
-            } else {
-                try {
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        android.net.Uri.parse("package:$packageName")
-                    )
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to open overlay permission screen", e)
-                }
-            }
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
         } else {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 setShowWhenLocked(false)
                 setTurnScreenOn(false)
-            } else {
-                @Suppress("DEPRECATION")
-                window.clearFlags(
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                )
             }
-            LockScreenLauncherService.stop(this)
+            @Suppress("DEPRECATION")
+            window.clearFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
         }
     }
 }

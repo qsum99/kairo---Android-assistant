@@ -54,8 +54,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import com.kairo.assistant.service.LockScreenLauncherService
 import com.kairo.assistant.ui.theme.KairoAccent
 import com.kairo.assistant.ui.theme.KairoDarkBg
 import com.kairo.assistant.ui.theme.KairoOnSurface
@@ -363,7 +361,7 @@ fun SettingsScreen(
                                 color = KairoOnSurface
                             )
                             Text(
-                                text = "Allow assistant over lock screen & show round app launcher button at bottom",
+                                text = "Allow assistant to run seamlessly over the lock screen without asking to unlock",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = KairoOnSurfaceVariant
                             )
@@ -374,22 +372,6 @@ fun SettingsScreen(
                             onCheckedChange = { isChecked ->
                                 allowOnLockScreen = isChecked
                                 prefs.edit().putBoolean("allow_on_lock_screen", isChecked).apply()
-                                if (isChecked) {
-                                    if (!android.provider.Settings.canDrawOverlays(context)) {
-                                        try {
-                                            val intent = Intent(
-                                                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                android.net.Uri.parse("package:${context.packageName}")
-                                            )
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            Log.e("SettingsScreen", "Failed to open overlay permission screen", e)
-                                        }
-                                    }
-                                    LockScreenLauncherService.start(context)
-                                } else {
-                                    LockScreenLauncherService.stop(context)
-                                }
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = KairoPrimary,
@@ -398,35 +380,6 @@ fun SettingsScreen(
                                 uncheckedTrackColor = KairoSurfaceVariant
                             )
                         )
-                    }
-
-                    if (allowOnLockScreen) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                try {
-                                    val intent = Intent("android.settings.LOCK_SCREEN_SETTINGS")
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    try {
-                                        val intent = Intent(android.provider.Settings.ACTION_SETTINGS)
-                                        context.startActivity(intent)
-                                    } catch (e2: Exception) {
-                                        Log.e("SettingsScreen", "Failed to open lock screen settings", e2)
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = KairoSurfaceVariant),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "⚙️ Configure Phone Lock Screen Shortcuts",
-                                color = KairoAccent,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                     }
 
                     HorizontalDivider(
