@@ -9,6 +9,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import android.provider.Settings
+import com.kairo.assistant.service.LockScreenLauncherService
 import com.kairo.assistant.ui.KairoApp
 import com.kairo.assistant.ui.theme.KairoTheme
 import com.kairo.assistant.viewmodel.KairoViewModel
@@ -71,6 +73,20 @@ class MainActivity : ComponentActivity() {
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                 )
             }
+
+            if (Settings.canDrawOverlays(this)) {
+                LockScreenLauncherService.start(this)
+            } else {
+                try {
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")
+                    )
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to open overlay permission screen", e)
+                }
+            }
         } else {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 setShowWhenLocked(false)
@@ -82,6 +98,7 @@ class MainActivity : ComponentActivity() {
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                 )
             }
+            LockScreenLauncherService.stop(this)
         }
     }
 }

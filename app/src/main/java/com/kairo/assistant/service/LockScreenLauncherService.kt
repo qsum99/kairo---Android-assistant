@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -32,16 +34,39 @@ class LockScreenLauncherService : Service() {
     private var floatingButtonView: View? = null
     private var isViewAdded = false
 
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
+                    if (!isViewAdded && Settings.canDrawOverlays(this@LockScreenLauncherService)) {
+                        setupFloatingButton()
+                    }
+                }
+            }
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         startForegroundServiceNotification()
         setupFloatingButton()
+
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            registerReceiver(screenReceiver, filter)
+        } catch (e: Exception) {
+            Log.w("LockScreenLauncherService", "Error registering screen receiver", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (floatingButtonView == null) {
+        if (!isViewAdded) {
             setupFloatingButton()
         }
         return START_STICKY
@@ -89,10 +114,12 @@ class LockScreenLauncherService : Service() {
             return
         }
 
+        if (isViewAdded) return
+
         try {
             windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-            val buttonSizePx = (58 * resources.displayMetrics.density).toInt()
+            val buttonSizePx = (64 * resources.displayMetrics.density).toInt()
 
             val layoutParams = WindowManager.LayoutParams(
                 buttonSizePx,
@@ -105,31 +132,32 @@ class LockScreenLauncherService : Service() {
                 },
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
             ).apply {
-                gravity = Gravity.BOTTOM or Gravity.END
-                x = (20 * resources.displayMetrics.density).toInt()
-                y = (100 * resources.displayMetrics.density).toInt()
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                x = 0
+                y = (90 * resources.displayMetrics.density).toInt()
             }
 
-            // Create a beautiful round cyan glowing button
+            // Create a round cyan glowing button
             val container = ImageView(this).apply {
                 val backgroundDrawable = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(Color.parseColor("#141E30")) // Deep obsidian background
-                    setStroke((2 * resources.displayMetrics.density).toInt(), Color.parseColor("#00E676")) // Neon Cyan border
+                    setColor(Color.parseColor("#101828")) // Obsidian dark background
+                    setStroke((2 * resources.displayMetrics.density).toInt(), Color.parseColor("#00E676")) // Neon Green/Cyan border
                 }
                 background = backgroundDrawable
                 setImageResource(android.R.drawable.ic_btn_speak_now)
                 setColorFilter(Color.parseColor("#00D2FF")) // Electric cyan icon tint
-                val paddingPx = (12 * resources.displayMetrics.density).toInt()
+                val paddingPx = (14 * resources.displayMetrics.density).toInt()
                 setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
-                elevation = 16f
+                elevation = 20f
             }
 
-            // Support touch drag & click
+            // Support touch drag & tap
             container.setOnTouchListener(object : View.OnTouchListener {
                 private var initialX = 0
                 private var initialY = 0
@@ -199,6 +227,12 @@ class LockScreenLauncherService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try {
+            unregisterReceiver(screenReceiver)
+        } catch (e: Exception) {
+            Log.w("LockScreenLauncherService", "Error unregistering receiver", e)
+        }
+
         if (isViewAdded && floatingButtonView != null) {
             try {
                 windowManager?.removeView(floatingButtonView)
