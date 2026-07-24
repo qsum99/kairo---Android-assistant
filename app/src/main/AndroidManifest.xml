@@ -16,6 +16,10 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- System Overlay for Lock Screen Floating Round Launcher Button -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:name=".KairoApplication"
@@ -87,7 +91,18 @@
             <intent-filter>
                 <action android:name="android.speech.RecognitionService" />
             </intent-filter>
-        </service> 
+        </service>
+
+        <!-- Floating Lock Screen Round Launcher Service -->
+        <service
+            android:name=".service.LockScreenLauncherService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating launch button for lock screen voice assistant trigger" />
+        </service>
     </application>
 
 </manifest>

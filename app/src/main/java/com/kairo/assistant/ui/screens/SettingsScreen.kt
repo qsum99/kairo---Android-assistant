@@ -55,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.kairo.assistant.service.LockScreenLauncherService
 import com.kairo.assistant.ui.theme.KairoAccent
 import com.kairo.assistant.ui.theme.KairoDarkBg
 import com.kairo.assistant.ui.theme.KairoOnSurface
@@ -373,6 +374,22 @@ fun SettingsScreen(
                             onCheckedChange = { isChecked ->
                                 allowOnLockScreen = isChecked
                                 prefs.edit().putBoolean("allow_on_lock_screen", isChecked).apply()
+                                if (isChecked) {
+                                    if (!android.provider.Settings.canDrawOverlays(context)) {
+                                        try {
+                                            val intent = Intent(
+                                                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                android.net.Uri.parse("package:${context.packageName}")
+                                            )
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Log.e("SettingsScreen", "Failed to open overlay permission screen", e)
+                                        }
+                                    }
+                                    LockScreenLauncherService.start(context)
+                                } else {
+                                    LockScreenLauncherService.stop(context)
+                                }
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = KairoPrimary,
