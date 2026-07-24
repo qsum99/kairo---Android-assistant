@@ -1,5 +1,6 @@
 package com.kairo.assistant.service
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -25,7 +26,8 @@ import androidx.core.app.NotificationCompat
 import com.kairo.assistant.MainActivity
 
 /**
- * Foreground Service that displays a floating round launch button over the Android Lock Screen.
+ * Foreground Service that displays a floating round launch button ONLY on the Android Lock Screen.
+ * Automatically hides when the phone is unlocked (Home Screen).
  * Tapping the floating round button instantly opens Kairo Voice Assistant over the lock screen.
  */
 class LockScreenLauncherService : Service() {
@@ -36,13 +38,7 @@ class LockScreenLauncherService : Service() {
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
-                    if (!isViewAdded && Settings.canDrawOverlays(this@LockScreenLauncherService)) {
-                        setupFloatingButton()
-                    }
-                }
-            }
+            updateFloatingButtonVisibility()
         }
     }
 
@@ -51,7 +47,7 @@ class LockScreenLauncherService : Service() {
     override fun onCreate() {
         super.onCreate()
         startForegroundServiceNotification()
-        setupFloatingButton()
+        updateFloatingButtonVisibility()
 
         try {
             val filter = IntentFilter().apply {
@@ -66,10 +62,19 @@ class LockScreenLauncherService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!isViewAdded) {
-            setupFloatingButton()
-        }
+        updateFloatingButtonVisibility()
         return START_STICKY
+    }
+
+    private fun updateFloatingButtonVisibility() {
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val isLocked = km?.isKeyguardLocked == true
+
+        if (isLocked) {
+            setupFloatingButton()
+        } else {
+            removeFloatingButton()
+        }
     }
 
     private fun startForegroundServiceNotification() {
@@ -102,6 +107,7 @@ class LockScreenLauncherService : Service() {
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
@@ -137,9 +143,9 @@ class LockScreenLauncherService : Service() {
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
             ).apply {
-                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                x = 0
-                y = (90 * resources.displayMetrics.density).toInt()
+                gravity = Gravity.BOTTOM or Gravity.START
+                x = (24 * resources.displayMetrics.density).toInt()
+                y = (120 * resources.displayMetrics.density).toInt()
             }
 
             // Create a round cyan glowing button
@@ -176,7 +182,7 @@ class LockScreenLauncherService : Service() {
                             return true
                         }
                         MotionEvent.ACTION_MOVE -> {
-                            layoutParams.x = initialX - (event.rawX - initialTouchX).toInt()
+                            layoutParams.x = initialX + (event.rawX - initialTouchX).toInt()
                             layoutParams.y = initialY - (event.rawY - initialTouchY).toInt()
                             try {
                                 windowManager?.updateViewLayout(container, layoutParams)
@@ -212,6 +218,18 @@ class LockScreenLauncherService : Service() {
         }
     }
 
+    private fun removeFloatingButton() {
+        if (isViewAdded && floatingButtonView != null) {
+            try {
+                windowManager?.removeView(floatingButtonView)
+            } catch (e: Exception) {
+                Log.w("LockScreenLauncherService", "Error removing floating view", e)
+            }
+        }
+        floatingButtonView = null
+        isViewAdded = false
+    }
+
     private fun launchKairoOnLockScreen() {
         try {
             val intent = Intent(this, MainActivity::class.java).apply {
@@ -233,15 +251,7 @@ class LockScreenLauncherService : Service() {
             Log.w("LockScreenLauncherService", "Error unregistering receiver", e)
         }
 
-        if (isViewAdded && floatingButtonView != null) {
-            try {
-                windowManager?.removeView(floatingButtonView)
-            } catch (e: Exception) {
-                Log.w("LockScreenLauncherService", "Error removing floating view", e)
-            }
-        }
-        floatingButtonView = null
-        isViewAdded = false
+        removeFloatingButton()
     }
 
     companion object {
