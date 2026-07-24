@@ -1,5 +1,6 @@
 package com.kairo.assistant.stt
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
@@ -15,6 +16,9 @@ class SpeechToTextManager(private val context: Context) {
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var isCurrentlyListening = false
+    private var useOnDeviceOnly = false
+
+    fun isListening(): Boolean = isCurrentlyListening
 
     init {
         prewarm()
@@ -23,9 +27,20 @@ class SpeechToTextManager(private val context: Context) {
     fun prewarm() {
         if (speechRecognizer == null) {
             try {
-                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+                    speechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                    useOnDeviceOnly = true
+                    Log.d("SpeechToTextManager", "Using On-Device SpeechRecognizer for lock screen compatibility")
+                } else {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                }
             } catch (e: Exception) {
                 Log.w("SpeechToTextManager", "Error pre-warming SpeechRecognizer", e)
+                try {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                } catch (e2: Exception) {
+                    Log.e("SpeechToTextManager", "Fallback SpeechRecognizer creation failed", e2)
+                }
             }
         }
     }
@@ -49,6 +64,9 @@ class SpeechToTextManager(private val context: Context) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            }
         }
 
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
@@ -84,16 +102,24 @@ class SpeechToTextManager(private val context: Context) {
                     SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
                     SpeechRecognizer.ERROR_SERVER -> "Server error"
                     SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech timeout"
-                    13 -> "Voice model unavailable. Please update Google Speech Services or connect to the internet to download it."
+                    13 -> "Voice model unavailable. Please update Google Speech Services or connect to the internet."
                     11 -> "Server disconnected. Retrying connection..."
                     else -> "Unknown error (code: $error)"
                 }
                 Log.e("SpeechToTextManager", "Recognition error: $errorMessage")
                 isCurrentlyListening = false
                 
-                // If it is a critical client/server binding issue, destroy the instance to force recreate next time
-                if (error == 11 || error == SpeechRecognizer.ERROR_CLIENT) {
+                // If insufficient permissions (error 9) or client error occurs while keyguard is locked, switch to on-device recognizer immediately
+                if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS || error == 11 || error == SpeechRecognizer.ERROR_CLIENT) {
                     destroy()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        try {
+                            speechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                            useOnDeviceOnly = true
+                        } catch (e: Exception) {
+                            Log.w("SpeechToTextManager", "Fallback on-device creation error", e)
+                        }
+                    }
                 }
 
                 onError(errorMessage)
@@ -129,16 +155,15 @@ class SpeechToTextManager(private val context: Context) {
     }
 
     fun stopListening() {
-        try {
-            speechRecognizer?.stopListening()
-            speechRecognizer?.cancel()
-        } catch (e: Exception) {
-            Log.w("SpeechToTextManager", "Error stopping/cancelling recognition", e)
+        if (isCurrentlyListening) {
+            try {
+                speechRecognizer?.stopListening()
+            } catch (e: Exception) {
+                Log.w("SpeechToTextManager", "Error stopping speech recognizer", e)
+            }
+            isCurrentlyListening = false
         }
-        isCurrentlyListening = false
     }
-
-    fun isListening(): Boolean = isCurrentlyListening
 
     fun destroy() {
         try {
@@ -147,5 +172,6 @@ class SpeechToTextManager(private val context: Context) {
             Log.w("SpeechToTextManager", "Error destroying speech recognizer", e)
         }
         speechRecognizer = null
+        isCurrentlyListening = false
     }
 }
