@@ -52,6 +52,25 @@
             </intent-filter>
         </activity>
 
+        <!-- Translucent Activity displayed on top of Android Lock Screen -->
+        <activity
+            android:name=".ui.LockScreenLauncherActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Kairo.Translucent"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
+
+        <receiver
+            android:name=".receiver.LockScreenReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SCREEN_ON" />
+                <action android:name="android.intent.action.USER_PRESENT" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".receiver.KairoDeviceAdminReceiver"
             android:description="@string/device_admin_description"
