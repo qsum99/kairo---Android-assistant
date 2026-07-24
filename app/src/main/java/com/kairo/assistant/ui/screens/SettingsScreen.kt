@@ -362,7 +362,7 @@ fun SettingsScreen(
                                 color = KairoOnSurface
                             )
                             Text(
-                                text = "Allow assistant to launch over the lock screen",
+                                text = "Allow assistant over lock screen & show round app launcher button at bottom",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = KairoOnSurfaceVariant
                             )

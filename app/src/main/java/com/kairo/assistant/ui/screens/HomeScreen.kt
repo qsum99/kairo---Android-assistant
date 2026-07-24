@@ -21,6 +21,12 @@ import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -170,6 +176,58 @@ fun HomeScreen(
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         isVisible = true
+    }
+
+    val prefs = remember { context.getSharedPreferences("kairo_prefs", android.content.Context.MODE_PRIVATE) }
+    val allowOnLockScreen = remember(prefs) { prefs.getBoolean("allow_on_lock_screen", false) }
+    val keyguardManager = remember(context) { context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager }
+    val isKeyguardLocked = keyguardManager?.isKeyguardLocked == true
+
+    var showAppLauncherDialog by remember { mutableStateOf(false) }
+    var installedAppsList by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+
+    LaunchedEffect(showAppLauncherDialog) {
+        if (showAppLauncherDialog) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val pm = context.packageManager
+                val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+                val resolveInfoList = pm.queryIntentActivities(intent, 0)
+                val apps = resolveInfoList.map {
+                    Pair(it.loadLabel(pm).toString(), it.activityInfo.packageName)
+                }.sortedBy { it.first }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    installedAppsList = apps
+                }
+            }
+        }
+    }
+
+    val launchTargetApp = { packageName: String ->
+        showAppLauncherDialog = false
+        val activity = context as? Activity
+        
+        val doLaunch = {
+            try {
+                val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
+                if (launchIntent != null) {
+                    launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(launchIntent)
+                    (context as? Activity)?.finish()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("HomeScreen", "Failed to launch app: $packageName", e)
+            }
+        }
+
+        if (activity != null && keyguardManager != null && keyguardManager.isKeyguardLocked && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            keyguardManager.requestDismissKeyguard(activity, object : android.app.KeyguardManager.KeyguardDismissCallback() {
+                override fun onDismissSucceeded() {
+                    doLaunch()
+                }
+            })
+        } else {
+            doLaunch()
+        }
     }
 
     Box(
@@ -745,6 +803,26 @@ fun HomeScreen(
                             )
                         }
 
+                        // Round Shape Lock Screen App Launcher Button
+                        if (allowOnLockScreen || isKeyguardLocked) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(KairoSurfaceVariant.copy(alpha = 0.8f))
+                                    .border(BorderStroke(1.5.dp, KairoAccent), CircleShape)
+                                    .clickable { showAppLauncherDialog = true }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Apps,
+                                    contentDescription = "Launch App from Lock Screen",
+                                    tint = KairoAccent,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+
                         // Right Settings slider gear
                         IconButton(
                             onClick = onSettingsClick,
@@ -762,5 +840,119 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    // App Launcher Dialog (Lock Screen Quick Launch)
+    if (showAppLauncherDialog) {
+        var searchQuery by remember { mutableStateOf("") }
+        val filteredApps = installedAppsList.filter { 
+            it.first.contains(searchQuery, ignoreCase = true) 
+        }
+
+        AlertDialog(
+            onDismissRequest = { showAppLauncherDialog = false },
+            containerColor = KairoDarkBg,
+            titleContentColor = KairoOnSurface,
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Launch App",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = KairoOnSurface
+                    )
+                    Text(
+                        text = if (isKeyguardLocked) "🔒 Lock Screen" else "🔓 Quick Launch",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isKeyguardLocked) KairoAccent else KairoPrimary
+                    )
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search apps...", color = KairoOnSurfaceVariant) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(BorderStroke(1.dp, KairoPrimary.copy(alpha = 0.3f)), RoundedCornerShape(12.dp)),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = KairoSurfaceVariant,
+                            unfocusedContainerColor = KairoSurfaceVariant.copy(alpha = 0.5f),
+                            focusedTextColor = KairoOnSurface,
+                            unfocusedTextColor = KairoOnSurface
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (filteredApps.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                            Text("No apps found", color = KairoOnSurfaceVariant)
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth().weight(1f)
+                        ) {
+                            items(filteredApps) { app ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(KairoSurfaceVariant.copy(alpha = 0.6f))
+                                        .border(BorderStroke(1.dp, KairoPrimary.copy(alpha = 0.2f)), RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            launchTargetApp(app.second)
+                                        }
+                                        .padding(8.dp)
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(KairoPrimary.copy(alpha = 0.2f))
+                                    ) {
+                                        Text(
+                                            text = app.first.take(1).uppercase(),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = KairoAccent
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = app.first,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = KairoOnSurface,
+                                        maxLines = 1,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                Button(
+                    onClick = { showAppLauncherDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = KairoSurfaceVariant)
+                ) {
+                    Text("Close", color = KairoOnSurface)
+                }
+            }
+        )
     }
 }
