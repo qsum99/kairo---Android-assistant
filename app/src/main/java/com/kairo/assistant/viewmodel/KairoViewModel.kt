@@ -259,6 +259,14 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun cancelAgent() {
+        agentEngine.cancel()
+    }
+
+    fun resetAgent() {
+        agentEngine.reset()
+    }
+
     private fun startListening() {
         if (_uiState.value.status == AssistantStatus.LISTENING || sttManager.isListening()) {
             return

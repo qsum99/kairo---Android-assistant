@@ -54,11 +54,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.net.Uri
+import android.provider.Settings
+import androidx.compose.ui.graphics.Color
+import com.kairo.assistant.screen.KairoAccessibilityService
+import com.kairo.assistant.service.FloatingBuddyService
 import com.kairo.assistant.ui.theme.KairoAccent
 import com.kairo.assistant.ui.theme.KairoDarkBg
+import com.kairo.assistant.ui.theme.KairoError
 import com.kairo.assistant.ui.theme.KairoOnSurface
 import com.kairo.assistant.ui.theme.KairoOnSurfaceVariant
 import com.kairo.assistant.ui.theme.KairoPrimary
+import com.kairo.assistant.ui.theme.KairoSuccess
 import com.kairo.assistant.ui.theme.KairoSurface
 import com.kairo.assistant.ui.theme.KairoSurfaceVariant
 
@@ -91,6 +98,19 @@ fun SettingsScreen(
     var isModelDownloaded by remember { mutableStateOf(modelFile.exists()) }
     LaunchedEffect(uiState.llmStatus) {
         isModelDownloaded = modelFile.exists()
+    }
+
+    var floatingBuddyEnabled by remember {
+        mutableStateOf(FloatingBuddyService.isRunning() || prefs.getBoolean("floating_buddy_enabled", false))
+    }
+    var isAccessibilityEnabled by remember {
+        mutableStateOf(KairoAccessibilityService.isRunning)
+    }
+
+    // Refresh status when returning to screen
+    LaunchedEffect(Unit) {
+        isAccessibilityEnabled = KairoAccessibilityService.isRunning
+        floatingBuddyEnabled = FloatingBuddyService.isRunning() || prefs.getBoolean("floating_buddy_enabled", false)
     }
 
 
@@ -208,7 +228,7 @@ fun SettingsScreen(
                             if (uiState.isLlmDownloading) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 androidx.compose.material3.LinearProgressIndicator(
-                                    progress = uiState.llmDownloadProgress ?: 0f,
+                                    progress = { uiState.llmDownloadProgress ?: 0f },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(4.dp)
@@ -221,7 +241,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(16.dp))
                         if (uiState.isLlmDownloading) {
                             androidx.compose.material3.CircularProgressIndicator(
-                                progress = uiState.llmDownloadProgress ?: 0f,
+                                progress = { uiState.llmDownloadProgress ?: 0f },
                                 modifier = Modifier.size(24.dp),
                                 color = KairoPrimary,
                                 strokeWidth = 2.5.dp
@@ -521,6 +541,165 @@ fun SettingsScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text("Configure", color = KairoOnSurface)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── AI Buddy & Autonomous Agent Section ──
+            Text(
+                text = "AI BUDDY & AUTONOMOUS AGENT",
+                style = MaterialTheme.typography.labelMedium,
+                color = KairoOnSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(KairoSurface)
+                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(12.dp))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Floating AI Buddy Row
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Floating AI Buddy",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = KairoOnSurface
+                            )
+                            Text(
+                                text = "Always-accessible draggable assistant bubble over other apps",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KairoOnSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Switch(
+                            checked = floatingBuddyEnabled,
+                            onCheckedChange = { isChecked ->
+                                if (isChecked) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+                                        // Request overlay permission
+                                        try {
+                                            val intent = Intent(
+                                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                Uri.parse("package:${context.packageName}")
+                                            )
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Log.e("SettingsScreen", "Failed to launch overlay settings", e)
+                                        }
+                                    } else {
+                                        floatingBuddyEnabled = true
+                                        prefs.edit().putBoolean("floating_buddy_enabled", true).apply()
+                                        FloatingBuddyService.start(context)
+                                    }
+                                } else {
+                                    floatingBuddyEnabled = false
+                                    prefs.edit().putBoolean("floating_buddy_enabled", false).apply()
+                                    FloatingBuddyService.stop(context)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = KairoPrimary,
+                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
+                                uncheckedThumbColor = KairoOnSurfaceVariant,
+                                uncheckedTrackColor = KairoSurfaceVariant
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(
+                        color = KairoSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
+                    // Screen Accessibility Service (Agent Brain)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Screen Reader & Agent Control",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = KairoOnSurface
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isAccessibilityEnabled) KairoSuccess.copy(alpha = 0.15f) else Color(0xFFFFB300).copy(alpha = 0.15f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = if (isAccessibilityEnabled) "Active" else "Disabled",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = if (isAccessibilityEnabled) KairoSuccess else Color(0xFFFFB300)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Required for AI to read screen content and automate multi-step tasks",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KairoOnSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Log.e("SettingsScreen", "Failed to open accessibility settings", e)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = if (isAccessibilityEnabled) KairoSurfaceVariant else KairoPrimary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = if (isAccessibilityEnabled) "Settings" else "Enable",
+                                color = KairoOnSurface
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(
+                        color = KairoSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
+                    // Privacy Assurance Note
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(KairoDarkBg)
+                            .padding(12.dp)
+                    ) {
+                        Column {
+                            Text(
+                                text = "🔒 100% On-Device Privacy",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF00E5FF)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "All screen reading, gesture execution, and AI decisions run strictly on your device using local models. Zero telemetry or screen data is ever sent to any cloud server.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = KairoOnSurfaceVariant
+                            )
                         }
                     }
                 }

@@ -13,16 +13,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Assistant
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BubbleChart
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ScreenSearchDesktop
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.StopCircle
+import com.kairo.assistant.agent.AgentProgress
+import com.kairo.assistant.agent.AgentStatus
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
@@ -55,6 +66,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.kairo.assistant.ui.components.AgentProgressCard
 import com.kairo.assistant.ui.components.AssistantStatus
 import com.kairo.assistant.ui.components.MicButton
 import com.kairo.assistant.ui.components.StatusIndicator
@@ -112,6 +124,7 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val agentProgress by viewModel.agentProgress.collectAsState()
     val context = LocalContext.current
     LaunchedEffect(context) {
         viewModel.updateActiveContext(context)
@@ -326,7 +339,7 @@ fun HomeScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                imageVector = if (voiceFeedbackEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                                imageVector = if (voiceFeedbackEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                                 contentDescription = if (voiceFeedbackEnabled) "Mute Voice" else "Unmute Voice",
                                 tint = if (voiceFeedbackEnabled) KairoAccent else KairoError.copy(alpha = 0.8f),
                                 modifier = Modifier.size(26.dp)
@@ -336,7 +349,15 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (uiState.response.isEmpty() && uiState.transcript.isEmpty()) {
+                    if (agentProgress.status != AgentStatus.IDLE) {
+                        // Autonomous Agent Execution Progress Card
+                        AgentProgressCard(
+                            progress = agentProgress,
+                            onCancelClick = { viewModel.cancelAgent() },
+                            onDismissClick = { viewModel.resetAgent() },
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
+                    } else if (uiState.response.isEmpty() && uiState.transcript.isEmpty()) {
                         // Cyber capsule layout for prompt suggestion
                         Box(
                             modifier = Modifier
@@ -385,6 +406,66 @@ fun HomeScreen(
                             ),
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                         )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Quick Action Suggestion Chips
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(KairoSurfaceVariant.copy(alpha = 0.45f))
+                                    .border(1.dp, KairoAccent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .clickable { viewModel.submitQuery("What's on my screen?") }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.ScreenSearchDesktop,
+                                        contentDescription = null,
+                                        tint = KairoAccent,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Read Screen",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = KairoOnSurface,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(KairoSurfaceVariant.copy(alpha = 0.45f))
+                                    .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .clickable { viewModel.submitQuery("Agent, do task") }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.SmartToy,
+                                        contentDescription = null,
+                                        tint = Color(0xFF00E5FF),
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Agent Mode",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = KairoOnSurface,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
                     } else {
                         // Symmetrical thin spacing header when in conversation mode
                         Text(
@@ -436,7 +517,7 @@ fun HomeScreen(
                                         }
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Send,
+                                            imageVector = Icons.AutoMirrored.Filled.Send,
                                             contentDescription = "Send",
                                             tint = KairoPrimary
                                         )
@@ -557,7 +638,7 @@ fun HomeScreen(
                                                     )
                                                     if (uiState.status == AssistantStatus.SPEAKING) {
                                                         Icon(
-                                                            imageVector = Icons.Default.VolumeUp,
+                                                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                                             contentDescription = "Mute Speaking",
                                                             tint = KairoAccent.copy(alpha = 0.7f),
                                                             modifier = Modifier.size(14.dp)
