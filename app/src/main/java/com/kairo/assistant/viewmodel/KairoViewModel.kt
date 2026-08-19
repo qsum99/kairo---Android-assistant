@@ -791,19 +791,20 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        val isImmediateExitIntent = result.success && (
+        val isImmediateExitIntent = (intentType != IntentType.AGENT_TASK) && (
             intentType == IntentType.CALL ||
             intentType == IntentType.OPEN_APP ||
             intentType == IntentType.OPEN_SETTINGS ||
-            intentType == IntentType.SET_ALARM ||
             intentType == IntentType.GOOGLE_SEARCH ||
             intentType == IntentType.BING_SEARCH ||
             intentType == IntentType.EXIT ||
-            result.message.startsWith("Calling") || 
-            result.message.startsWith("Opening") || 
-            result.message.startsWith("Searching") || 
-            result.message.startsWith("Bye") || 
-            result.message.startsWith("Goodbye")
+            (!result.message.startsWith("Starting agent") && (
+                result.message.startsWith("Calling") || 
+                (intentType == IntentType.OPEN_APP && result.message.startsWith("Opening")) || 
+                result.message.startsWith("Searching") || 
+                result.message.startsWith("Bye") || 
+                result.message.startsWith("Goodbye")
+            ))
         )
 
         _uiState.update {
@@ -817,7 +818,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
-        val shouldAutoExit = isImmediateExitIntent || when (intentType) {
+        val shouldAutoExit = if (intentType == IntentType.AGENT_TASK) false else (isImmediateExitIntent || when (intentType) {
             IntentType.EXIT,
             IntentType.OPEN_APP,
             IntentType.OPEN_SETTINGS,
@@ -826,7 +827,7 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
             IntentType.BING_SEARCH,
             IntentType.CALL -> true
             else -> false
-        }
+        })
 
         if (isImmediateExitIntent) {
             // Immediately mark exit so the activity finishes cleanly while handing off to external intent (e.g. Phone Call / App)

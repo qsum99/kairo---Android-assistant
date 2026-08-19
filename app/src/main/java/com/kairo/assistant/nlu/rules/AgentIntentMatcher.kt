@@ -18,8 +18,9 @@ object AgentIntentMatcher {
     )
 
     private val AGENT_APP_PATTERNS = listOf(
-        "open (\\w+) and (.+)" to "APP_AND_ACTION",
-        "go to (\\w+) and (.+)" to "APP_AND_ACTION",
+        "open (.+?) and (.+)" to "APP_AND_ACTION",
+        "go to (.+?) and (.+)" to "APP_AND_ACTION",
+        "create (?:a )?meeting (?:in|on) (.+)" to "MEETING",
         "send (?:a )?whatsapp (?:message )?to (.+?) (?:saying|that) (.+)" to "WHATSAPP_MSG",
         "send (.+?) a whatsapp (?:saying|that) (.+)" to "WHATSAPP_MSG",
         "order (.+) (?:from|on) (.+)" to "ORDER",

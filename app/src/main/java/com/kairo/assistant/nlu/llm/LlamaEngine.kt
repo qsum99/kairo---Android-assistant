@@ -186,11 +186,11 @@ object LlamaEngine {
                 System.gc()
 
                 val model = org.codeshipping.llamakotlin.LlamaModel.load(modelFile.absolutePath) {
-                    contextSize = 256     // Smaller context = faster prompt processing
-                    batchSize = 256       // Match context size for optimal throughput
-                    threads = 4           // Use more CPU cores for parallel decoding
+                    contextSize = 1024    // Ample context for UI tree + agent prompt
+                    batchSize = 512       // Batch size for fast throughput
+                    threads = 4           // Parallel CPU decoding
                     gpuLayers = 0
-                    temperature = 0.3f    // Lower temp = faster sampling, more deterministic
+                    temperature = 0.2f    // Low temp for deterministic JSON output
                 }
 
                 llamaModel = model

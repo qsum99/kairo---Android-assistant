@@ -145,7 +145,10 @@ fun AgentProgressCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -175,18 +178,22 @@ fun AgentProgressCard(
                                 text = "AUTONOMOUS AGENT",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.2.sp
+                                    letterSpacing = 1.sp
                                 ),
-                                color = accentColor
+                                color = accentColor,
+                                maxLines = 1
                             )
                             Text(
                                 text = "100% On-Device Automation",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = KairoOnSurfaceVariant,
-                                fontSize = 11.sp
+                                fontSize = 11.sp,
+                                maxLines = 1
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     // Status Pill
                     Box(

@@ -28,8 +28,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         configureLockScreenFlags()
 
-        // Always start listening on launch (manual or assistant trigger)
-        viewModel.startListeningAutomatic()
+        // Always start listening on launch unless a direct query was provided
+        val query = intent?.getStringExtra("query")
+        if (!query.isNullOrBlank()) {
+            viewModel.submitQuery(query)
+        } else {
+            viewModel.startListeningAutomatic()
+        }
 
         setContent {
             KairoTheme {
@@ -42,7 +47,12 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         configureLockScreenFlags()
-        viewModel.startListeningAutomatic()
+        val query = intent.getStringExtra("query")
+        if (!query.isNullOrBlank()) {
+            viewModel.submitQuery(query)
+        } else {
+            viewModel.startListeningAutomatic()
+        }
     }
 
     override fun onResume() {
