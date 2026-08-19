@@ -6,6 +6,9 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kairo.assistant.actions.ActionDispatcher
+import com.kairo.assistant.agent.AgentEngine
+import com.kairo.assistant.agent.AgentProgress
+import com.kairo.assistant.agent.AgentStatus
 import com.kairo.assistant.data.AppResolver
 import com.kairo.assistant.data.ContactResolver
 import com.kairo.assistant.nlu.CommandRouter
@@ -90,6 +93,11 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     private val sttManager: SpeechToTextManager by lazy {
         SpeechToTextManager(application)
     }
+    // Agent engine for autonomous multi-step tasks
+    private val agentEngine: AgentEngine by lazy {
+        AgentEngine(application)
+    }
+    val agentProgress: StateFlow<AgentProgress> get() = agentEngine.progress
 
     private var activeContextRef: java.lang.ref.WeakReference<Context>? = null
     private var isStoppingIntentionally = false
@@ -532,6 +540,21 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                         com.kairo.assistant.actions.ActionResult(
                             success = true,
                             message = response
+                        )
+                    }
+                    IntentType.AGENT_TASK -> {
+                        // Launch agent in background and return immediate feedback
+                        val taskDesc = command.extra ?: text
+                        viewModelScope.launch(Dispatchers.IO) {
+                            agentEngine.executeTask(
+                                userCommand = taskDesc,
+                                tts = tts,
+                                maxSteps = 15
+                            )
+                        }
+                        com.kairo.assistant.actions.ActionResult(
+                            success = true,
+                            message = "Starting agent task: $taskDesc"
                         )
                     }
                     else -> {

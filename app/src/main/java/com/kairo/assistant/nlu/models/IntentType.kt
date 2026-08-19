@@ -25,5 +25,8 @@ enum class IntentType {
     VOLUME_UP,
     VOLUME_DOWN,
     SET_VOLUME,
+    SCREEN_QUERY,    // "What's on my screen?"
+    SCREEN_EXPLAIN,  // "Explain this" / "Help me with this"
+    AGENT_TASK,      // Autonomous multi-step task
     UNKNOWN
 }

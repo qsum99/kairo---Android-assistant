@@ -358,6 +358,55 @@ object LlamaEngine {
     }
 
     /**
+     * Run raw prompt inference and return the text response.
+     * Used by the AgentEngine for structured JSON action decisions.
+     *
+     * @param prompt The full formatted prompt (including system/user tags)
+     * @param maxTokens Maximum tokens to generate (default 64 for fast agent actions)
+     */
+    suspend fun classifyRaw(prompt: String, maxTokens: Int = 64): String = inferenceMutex.withLock {
+        val model = llamaModel
+        if (model == null || !model.isLoaded) {
+            return@withLock ""
+        }
+
+        return@withLock withContext(llmDispatcher) {
+            try {
+                val responseBuilder = StringBuilder()
+                var stopSignalled = false
+                var tokenCount = 0
+
+                model.generateStream(prompt)
+                    .flowOn(llmDispatcher)
+                    .collect { token ->
+                        if (!stopSignalled) {
+                            responseBuilder.append(token)
+                            tokenCount++
+
+                            val currentText = responseBuilder.toString()
+                            if (currentText.contains("<|eot_id|>") ||
+                                currentText.contains("```") ||
+                                tokenCount >= maxTokens) {
+                                stopSignalled = true
+                            }
+                        }
+                    }
+
+                responseBuilder.toString()
+                    .replace("<|eot_id|>", "")
+                    .replace("<|begin_of_text|>", "")
+                    .replace("<|start_header_id|>", "")
+                    .replace("<|end_header_id|>", "")
+                    .trim()
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Raw inference error", e)
+                ""
+            }
+        }
+    }
+
+    /**
      * Release native model resources.
      */
     fun shutdown() {

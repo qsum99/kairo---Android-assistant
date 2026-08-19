@@ -20,4 +20,7 @@
     <string name="error_unknown_command">I\'m not sure what to do with that.</string>
     <string name="device_admin_label">Kairo Device Administrator</string>
     <string name="device_admin_description">Allows Kairo to lock the screen when you ask it to.</string>
+    <string name="accessibility_service_description">Kairo AI Agent uses this to read your screen and perform actions like tapping, typing, and scrolling to complete tasks for you. No data is sent to any server — everything runs on your device.</string>
+    <string name="floating_buddy_title">Kairo AI Buddy</string>
+    <string name="floating_buddy_description">Floating AI assistant that stays on your screen</string>
 </resources>

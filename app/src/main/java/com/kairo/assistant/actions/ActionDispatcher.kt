@@ -25,7 +25,10 @@ class ActionDispatcher {
         IntentType.MEDIA_PAUSE to MediaExecutor(),
         IntentType.VOLUME_UP to VolumeExecutor(),
         IntentType.VOLUME_DOWN to VolumeExecutor(),
-        IntentType.SET_VOLUME to VolumeExecutor()
+        IntentType.SET_VOLUME to VolumeExecutor(),
+        // Screen AI
+        IntentType.SCREEN_QUERY to ScreenQueryExecutor(),
+        IntentType.SCREEN_EXPLAIN to ScreenQueryExecutor(),
     )
 
     fun dispatch(command: ParsedCommand, context: Context): ActionResult {

@@ -4,13 +4,16 @@ import android.util.Log
 import com.kairo.assistant.nlu.llm.LlmParser
 import com.kairo.assistant.nlu.models.IntentType
 import com.kairo.assistant.nlu.models.ParsedCommand
+import com.kairo.assistant.nlu.rules.AgentIntentMatcher
+import com.kairo.assistant.nlu.rules.ScreenAwareIntentMatcher
 
 /**
- * Top-level command router that delegates to the rule-based parser first,
- * then falls through to the LLM-based parser for unrecognized commands.
+ * Top-level command router that delegates to matchers in priority order:
  *
- * If the rule-based result has confidence > 0.75, it is returned immediately.
- * Otherwise, the LLM parser is used for intent classification or conversational response.
+ * 1. Screen-aware matcher (highest priority — "what's on my screen?")
+ * 2. Agent matcher ("do X for me", multi-step commands)
+ * 3. Rule-based parser (17 fast intent matchers)
+ * 4. LLM fallback (on-device LLaMA for complex/conversational)
  */
 class CommandRouter(
     private val ruleParser: RuleBasedParser,
@@ -24,12 +27,24 @@ class CommandRouter(
     /**
      * Parses a voice transcript into a [ParsedCommand].
      *
-     * Flow: Rule-based parser → (if low confidence) → LLM parser → fallback UNKNOWN
-     *
-     * @param transcript The raw voice transcript.
-     * @return A [ParsedCommand] with the best available interpretation.
+     * Flow: Screen matcher → Agent matcher → Rule parser → LLM → fallback
      */
     suspend fun parse(transcript: String): ParsedCommand {
+        // 1. Check for screen-aware queries ("what's on my screen?", "explain this")
+        val screenMatch = ScreenAwareIntentMatcher.match(transcript)
+        if (screenMatch != null) {
+            Log.d(TAG, "Screen-aware match: ${screenMatch.intent}")
+            return screenMatch
+        }
+
+        // 2. Check for agent tasks ("send WhatsApp to Mom", multi-step commands)
+        val agentMatch = AgentIntentMatcher.match(transcript)
+        if (agentMatch != null) {
+            Log.d(TAG, "Agent task match: ${agentMatch.intent}")
+            return agentMatch
+        }
+
+        // 3. Rule-based parser (fast intent matching)
         val ruleResult = ruleParser.tryMatch(transcript)
 
         // High-confidence rule match — return immediately
@@ -38,7 +53,7 @@ class CommandRouter(
             return ruleResult
         }
 
-        // Low confidence or UNKNOWN — try LLM if available
+        // 4. Low confidence or UNKNOWN — try LLM if available
         if (llmParser != null && llmParser.isAvailable) {
             Log.d(TAG, "Rule-based low confidence (${ruleResult.confidence}), falling through to LLM")
             val llmResult = llmParser.parse(transcript)
