@@ -11,12 +11,20 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,30 +43,33 @@ import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Assistant
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import com.kairo.assistant.nlu.llm.GeminiClient
-import kotlinx.coroutines.launch
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -71,30 +82,40 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.kairo.assistant.receiver.KairoDeviceAdminReceiver
+import com.kairo.assistant.nlu.llm.GeminiClient
 import com.kairo.assistant.screen.KairoAccessibilityService
 import com.kairo.assistant.service.FloatingBuddyService
-import com.kairo.assistant.ui.theme.KairoAccent
 import com.kairo.assistant.ui.theme.KairoDarkBg
 import com.kairo.assistant.ui.theme.KairoError
-import com.kairo.assistant.ui.theme.KairoOnSurface
-import com.kairo.assistant.ui.theme.KairoOnSurfaceVariant
 import com.kairo.assistant.ui.theme.KairoPrimary
 import com.kairo.assistant.ui.theme.KairoSuccess
-import com.kairo.assistant.ui.theme.KairoSurface
-import com.kairo.assistant.ui.theme.KairoSurfaceVariant
 import com.kairo.assistant.viewmodel.KairoViewModel
+import kotlinx.coroutines.launch
+
+// ── Color Tokens for High-Contrast Clean Settings ──
+private val CardBg = Color(0xFF0F1523)
+private val CardBorder = Color(0xFF1C273C)
+private val TextWhite = Color(0xFFFFFFFF)
+private val TextMuted = Color(0xFF94A3B8)
+private val AccentCyan = Color(0xFF00D2FF)
+private val AccentGreen = Color(0xFF00E676)
+private val AccentAmber = Color(0xFFF59E0B)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,6 +127,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE) }
+    val scope = rememberCoroutineScope()
 
     val isLowRam = remember {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
@@ -121,7 +143,7 @@ fun SettingsScreen(
     var showSimDialog by remember { mutableStateOf(false) }
     var defaultSimSetting by remember { mutableStateOf(prefs.getString("default_calling_sim", "always_ask") ?: "always_ask") }
 
-    val scope = rememberCoroutineScope()
+    // Dual AI Reasoning State
     var llmBackend by remember { mutableStateOf(prefs.getString("llm_backend", "gemini") ?: "gemini") }
     var geminiApiKey by remember { mutableStateOf(prefs.getString("gemini_api_key", "") ?: "") }
     var geminiModel by remember { mutableStateOf(prefs.getString("gemini_model", "gemini-3.1-flash-lite") ?: "gemini-3.1-flash-lite") }
@@ -129,13 +151,15 @@ fun SettingsScreen(
     var testResultText by remember { mutableStateOf<String?>(null) }
     var isTestSuccess by remember { mutableStateOf(false) }
     var isTestingConnection by remember { mutableStateOf(false) }
+
+    // Local model status
     val modelFile = remember { java.io.File(context.filesDir, "kairo_model_v7.gguf") }
     var isModelDownloaded by remember { mutableStateOf(modelFile.exists()) }
     LaunchedEffect(uiState.llmStatus) {
         isModelDownloaded = modelFile.exists()
     }
 
-    // Dynamic permission and service statuses
+    // Dynamic Permission Statuses
     var isAccessibilityEnabled by remember { mutableStateOf(checkAccessibilityEnabled(context)) }
     var isOverlayGranted by remember { mutableStateOf(checkOverlayPermission(context)) }
     var isBatteryOptimizedIgnored by remember { mutableStateOf(checkBatteryOptimizationIgnored(context)) }
@@ -145,7 +169,17 @@ fun SettingsScreen(
         mutableStateOf(FloatingBuddyService.isRunning() || prefs.getBoolean("floating_buddy_enabled", false))
     }
 
-    // Refresh all statuses when returning to Settings screen
+    var isDiagnosticsExpanded by remember { mutableStateOf(false) }
+    var diagnosticLogs by remember {
+        mutableStateOf(
+            run {
+                val file = java.io.File(context.filesDir, "wakeword_logs.txt")
+                if (file.exists()) file.readText() else "No logs recorded yet."
+            }
+        )
+    }
+
+    // Refresh statuses on screen entry
     LaunchedEffect(Unit) {
         isAccessibilityEnabled = checkAccessibilityEnabled(context)
         isOverlayGranted = checkOverlayPermission(context)
@@ -161,7 +195,11 @@ fun SettingsScreen(
                 title = {
                     Text(
                         text = "Settings",
-                        color = KairoOnSurface
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        ),
+                        color = TextWhite
                     )
                 },
                 navigationIcon = {
@@ -169,7 +207,7 @@ fun SettingsScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = KairoOnSurface
+                            tint = TextWhite
                         )
                     }
                 },
@@ -185,38 +223,443 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
 
             // ══════════════════════════════════════════════════════
-            // ── AGENT & SYSTEM PERMISSIONS (ALL REQUIREMENTS) ──
+            // ── HERO STATUS CARD ──
             // ══════════════════════════════════════════════════════
-            Text(
-                text = "AGENT & SYSTEM PERMISSIONS",
-                style = MaterialTheme.typography.labelMedium,
-                color = KairoOnSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
+            val allEssentialGranted = isAccessibilityEnabled && isOverlayGranted && areAppPermissionsGranted
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = if (allEssentialGranted) {
+                                listOf(Color(0xFF042F2E), Color(0xFF0F172A))
+                            } else {
+                                listOf(Color(0xFF332005), Color(0xFF0F172A))
+                            }
+                        )
+                    )
+                    .border(
+                        1.dp,
+                        if (allEssentialGranted) AccentGreen.copy(alpha = 0.4f) else AccentAmber.copy(alpha = 0.4f),
+                        RoundedCornerShape(16.dp)
+                    )
+                    .padding(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(if (allEssentialGranted) AccentGreen.copy(alpha = 0.15f) else AccentAmber.copy(alpha = 0.15f))
+                    ) {
+                        Icon(
+                            imageVector = if (allEssentialGranted) Icons.Default.SmartToy else Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = if (allEssentialGranted) AccentGreen else AccentAmber,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (allEssentialGranted) "AI Agent Ready" else "Setup Required",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = TextWhite
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (allEssentialGranted) AccentGreen.copy(alpha = 0.2f) else AccentAmber.copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (allEssentialGranted) "ACTIVE" else "ACTION NEEDED",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
+                                    color = if (allEssentialGranted) AccentGreen else AccentAmber
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (allEssentialGranted) {
+                                if (llmBackend == "gemini") "Autonomous agent reasoning with Cloud AI (${geminiModel.replace("gemini-", "")})" else "Autonomous agent running 100% offline with LLaMA 1B"
+                            } else {
+                                "Grant Accessibility and Overlay permissions to enable autonomous phone control"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextMuted,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ══════════════════════════════════════════════════════
+            // ── 1. AI REASONING BACKEND ──
+            // ══════════════════════════════════════════════════════
+            SectionHeader(title = "AI REASONING ENGINE", icon = Icons.Default.SmartToy)
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(KairoSurface)
-                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(CardBg)
+                    .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+                    .padding(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column {
+                    // Segmented Switcher Tab: Cloud vs On-Device
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF090D16))
+                            .padding(4.dp)
+                    ) {
+                        // Cloud API Option Tab
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (llmBackend == "gemini") AccentCyan.copy(alpha = 0.18f) else Color.Transparent)
+                                .border(
+                                    1.dp,
+                                    if (llmBackend == "gemini") AccentCyan.copy(alpha = 0.5f) else Color.Transparent,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable {
+                                    llmBackend = "gemini"
+                                    prefs.edit().putString("llm_backend", "gemini").apply()
+                                }
+                                .padding(vertical = 10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Cloud,
+                                    contentDescription = null,
+                                    tint = if (llmBackend == "gemini") AccentCyan else TextMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Cloud API",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = if (llmBackend == "gemini") AccentCyan else TextMuted
+                                )
+                            }
+                        }
 
-                    // 1. Accessibility Service (Primary Agent Requirement)
-                    AgentPermissionRow(
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        // On-Device Option Tab
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (llmBackend == "local") AccentGreen.copy(alpha = 0.18f) else Color.Transparent)
+                                .border(
+                                    1.dp,
+                                    if (llmBackend == "local") AccentGreen.copy(alpha = 0.5f) else Color.Transparent,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable {
+                                    llmBackend = "local"
+                                    prefs.edit().putString("llm_backend", "local").apply()
+                                }
+                                .padding(vertical = 10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.PhoneAndroid,
+                                    contentDescription = null,
+                                    tint = if (llmBackend == "local") AccentGreen else TextMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "100% Offline",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = if (llmBackend == "local") AccentGreen else TextMuted
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // ── CLOUD API VIEW ──
+                    if (llmBackend == "gemini") {
+                        Text(
+                            text = "Ultra-fast frontier intelligence with Google AI models for instant phone automation.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextMuted,
+                            lineHeight = 16.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // API Key Input
+                        OutlinedTextField(
+                            value = geminiApiKey,
+                            onValueChange = {
+                                geminiApiKey = it
+                                prefs.edit().putString("gemini_api_key", it).apply()
+                                testResultText = null
+                            },
+                            label = { Text("Google AI Studio API Key", color = TextMuted) },
+                            placeholder = { Text("AQ.Ab8RN... or AIzaSy...", color = TextMuted.copy(alpha = 0.5f)) },
+                            singleLine = true,
+                            visualTransformation = if (isKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { isKeyVisible = !isKeyVisible }) {
+                                    Icon(
+                                        imageVector = if (isKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        contentDescription = "Toggle API Key visibility",
+                                        tint = TextMuted
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentCyan,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite,
+                                focusedContainerColor = Color(0xFF090D16),
+                                unfocusedContainerColor = Color(0xFF090D16)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Model Chips
+                        Text(
+                            text = "Active Model Preset:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = TextMuted
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                        ) {
+                            listOf(
+                                "gemini-3.1-flash-lite" to "3.1 Lite (Fastest)",
+                                "gemma-4-26b-a4b-it" to "Gemma 4B",
+                                "gemini-flash-latest" to "Flash Latest",
+                                "gemini-3.6-flash" to "3.6 Flash"
+                            ).forEach { (modelId, label) ->
+                                val isSelected = geminiModel == modelId
+                                Box(
+                                    modifier = Modifier
+                                        .padding(end = 8.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) AccentCyan.copy(alpha = 0.2f) else Color(0xFF090D16))
+                                        .border(1.dp, if (isSelected) AccentCyan else CardBorder, RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            geminiModel = modelId
+                                            prefs.edit().putString("gemini_model", modelId).apply()
+                                            testResultText = null
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        ),
+                                        color = if (isSelected) AccentCyan else TextMuted
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Test Connection Row
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(
+                                onClick = {
+                                    if (geminiApiKey.isBlank()) {
+                                        testResultText = "Enter an API key first"
+                                        isTestSuccess = false
+                                        return@Button
+                                    }
+                                    isTestingConnection = true
+                                    testResultText = null
+                                    scope.launch {
+                                        val result = GeminiClient.testApiKey(geminiApiKey, geminiModel)
+                                        isTestingConnection = false
+                                        if (result.isSuccess) {
+                                            isTestSuccess = true
+                                            testResultText = "✓ Connected to $geminiModel!"
+                                        } else {
+                                            isTestSuccess = false
+                                            testResultText = result.exceptionOrNull()?.message ?: "Connection failed"
+                                        }
+                                    }
+                                },
+                                enabled = !isTestingConnection,
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                if (isTestingConnection) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        color = Color.Black,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                }
+                                Text(
+                                    text = if (isTestingConnection) "Testing..." else "Test Connection",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            if (testResultText != null) {
+                                Text(
+                                    text = testResultText ?: "",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                    color = if (isTestSuccess) AccentGreen else KairoError,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    } else {
+                        // ── 100% OFFLINE VIEW ──
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "LLaMA 3.2 1B Brain",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = TextWhite
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(if (isModelDownloaded) AccentGreen.copy(alpha = 0.2f) else AccentAmber.copy(alpha = 0.2f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isModelDownloaded) "Ready (554MB)" else "Not Installed",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
+                                            color = if (isModelDownloaded) AccentGreen else AccentAmber
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Executes completely on your phone's processor. Zero data leaves your device.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextMuted,
+                                    lineHeight = 16.sp
+                                )
+
+                                if (uiState.isLlmDownloading) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = { uiState.llmDownloadProgress ?: 0f },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(4.dp)
+                                            .clip(RoundedCornerShape(2.dp)),
+                                        color = AccentCyan,
+                                        trackColor = CardBorder
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            if (uiState.isLlmDownloading) {
+                                CircularProgressIndicator(
+                                    progress = { uiState.llmDownloadProgress ?: 0f },
+                                    modifier = Modifier.size(28.dp),
+                                    color = AccentCyan,
+                                    strokeWidth = 2.5.dp
+                                )
+                            } else if (!isModelDownloaded) {
+                                Button(
+                                    onClick = { viewModel.downloadLlmModel() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Download", color = Color.Black, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ══════════════════════════════════════════════════════
+            // ── 2. AGENT & SYSTEM PERMISSIONS ──
+            // ══════════════════════════════════════════════════════
+            SectionHeader(title = "AGENT PERMISSIONS", icon = Icons.Default.Security)
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(CardBg)
+                    .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Column {
+                    // 1. Accessibility Service
+                    CleanPermissionItem(
                         icon = Icons.Default.Accessibility,
                         title = "Accessibility Service",
-                        badgeText = "AGENT BRAIN",
-                        description = "Enables Kairo to read screen UI trees, tap buttons, scroll, and type text autonomously",
+                        subtitle = "Required for reading screen UI trees, tapping buttons, and executing agent actions",
                         isGranted = isAccessibilityEnabled,
-                        buttonLabel = if (isAccessibilityEnabled) "Settings" else "Enable",
-                        onButtonClick = {
+                        actionLabel = if (isAccessibilityEnabled) "Settings" else "Enable",
+                        onAction = {
                             try {
                                 val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -228,20 +671,16 @@ fun SettingsScreen(
                         }
                     )
 
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
+                    DividerLine()
 
-                    // 2. Display Over Other Apps (Floating AI Buddy Overlay)
-                    AgentPermissionRow(
+                    // 2. Display Over Other Apps
+                    CleanPermissionItem(
                         icon = Icons.Default.Layers,
                         title = "Display Over Other Apps",
-                        badgeText = "AI BUDDY",
-                        description = "Allows the floating assistant bubble and task cards to stay visible over any app",
+                        subtitle = "Allows the floating assistant bubble and task cards to remain visible over other apps",
                         isGranted = isOverlayGranted,
-                        buttonLabel = if (isOverlayGranted) "Granted" else "Grant",
-                        onButtonClick = {
+                        actionLabel = if (isOverlayGranted) "Active" else "Grant",
+                        onAction = {
                             try {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                     val intent = Intent(
@@ -259,78 +698,16 @@ fun SettingsScreen(
                         }
                     )
 
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
+                    DividerLine()
 
-                    // 3. Default Digital Assistant
-                    AgentPermissionRow(
-                        icon = Icons.Default.Assistant,
-                        title = "Default Assistant App",
-                        badgeText = "VOICE TRIGGER",
-                        description = "Enables long-press power/home assist launch and system-wide voice capture",
-                        isGranted = true, // Informative/configurable
-                        buttonLabel = "Configure",
-                        onButtonClick = {
-                            try {
-                                val intent = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                try {
-                                    val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-                                    context.startActivity(intent)
-                                } catch (e2: Exception) {
-                                    Log.e("SettingsScreen", "Failed to open default apps settings", e2)
-                                }
-                            }
-                        }
-                    )
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-
-                    // 4. App Permissions (Microphone, Contacts, Calls, SMS)
-                    AgentPermissionRow(
-                        icon = Icons.Default.Security,
-                        title = "App Permissions",
-                        badgeText = "VOICE & SYSTEM",
-                        description = "Microphone, Contacts lookup, Phone calls, SMS sending, and Phone State",
-                        isGranted = areAppPermissionsGranted,
-                        buttonLabel = if (areAppPermissionsGranted) "Granted" else "Manage",
-                        onButtonClick = {
-                            try {
-                                val intent = Intent(
-                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                    Uri.parse("package:${context.packageName}")
-                                ).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Log.e("SettingsScreen", "Failed to open app permissions", e)
-                            }
-                        }
-                    )
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-
-                    // 5. Battery Optimization (Unrestricted Background Execution)
-                    AgentPermissionRow(
+                    // 3. Battery Optimization
+                    CleanPermissionItem(
                         icon = Icons.Default.BatteryChargingFull,
-                        title = "Battery Optimization",
-                        badgeText = "BACKGROUND",
-                        description = "Set to Unrestricted so Android does not terminate long-running agent tasks in background",
+                        title = "Battery Unrestricted",
+                        subtitle = "Prevents Android battery saver from interrupting multi-step agent actions in background",
                         isGranted = isBatteryOptimizedIgnored,
-                        buttonLabel = if (isBatteryOptimizedIgnored) "Unrestricted" else "Configure",
-                        onButtonClick = {
+                        actionLabel = if (isBatteryOptimizedIgnored) "Unrestricted" else "Configure",
+                        onAction = {
                             try {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -350,25 +727,71 @@ fun SettingsScreen(
                         }
                     )
 
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
+                    DividerLine()
+
+                    // 4. App Permissions
+                    CleanPermissionItem(
+                        icon = Icons.Default.Security,
+                        title = "System Permissions",
+                        subtitle = "Microphone, Contacts lookup, Phone calling, and SMS messaging",
+                        isGranted = areAppPermissionsGranted,
+                        actionLabel = if (areAppPermissionsGranted) "Granted" else "Manage",
+                        onAction = {
+                            try {
+                                val intent = Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse("package:${context.packageName}")
+                                ).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Log.e("SettingsScreen", "Failed to open app permissions", e)
+                            }
+                        }
                     )
 
-                    // 6. Device Administrator (Screen Lock)
-                    AgentPermissionRow(
+                    DividerLine()
+
+                    // 5. Default Assistant App
+                    CleanPermissionItem(
+                        icon = Icons.Default.Assistant,
+                        title = "Default Digital Assistant",
+                        subtitle = "Enables long-press power / home button voice activation across your entire phone",
+                        isGranted = true,
+                        actionLabel = "Configure",
+                        onAction = {
+                            try {
+                                val intent = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                try {
+                                    val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                                    context.startActivity(intent)
+                                } catch (e2: Exception) {
+                                    Log.e("SettingsScreen", "Failed to open default apps settings", e2)
+                                }
+                            }
+                        }
+                    )
+
+                    DividerLine()
+
+                    // 6. Device Administrator
+                    CleanPermissionItem(
                         icon = Icons.Default.Lock,
                         title = "Device Administrator",
-                        badgeText = "SCREEN LOCK",
-                        description = "Allows Kairo to lock the phone screen when you request 'Lock device'",
+                        subtitle = "Allows Kairo to lock the phone screen when you request 'Lock screen'",
                         isGranted = isDeviceAdminActive,
-                        buttonLabel = if (isDeviceAdminActive) "Active" else "Enable",
-                        onButtonClick = {
+                        actionLabel = if (isDeviceAdminActive) "Active" else "Enable",
+                        onAction = {
                             try {
                                 val adminComponent = ComponentName(context, KairoDeviceAdminReceiver::class.java)
                                 val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
                                     putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
-                                    putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Allows Kairo to lock the screen when you ask.")
+                                    putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Allows Kairo to lock the screen when requested.")
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 }
                                 context.startActivity(intent)
@@ -377,727 +800,95 @@ fun SettingsScreen(
                             }
                         }
                     )
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-
-                    // 🔒 100% Privacy Box
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(KairoDarkBg)
-                            .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.2f), RoundedCornerShape(10.dp))
-                            .padding(12.dp)
-                    ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "🔒 100% On-Device Privacy Guaranteed",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = Color(0xFF00E5FF)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "All screen reading, UI tree inspection, gesture automation, and AI models run strictly on your phone hardware. Zero screenshots, data, or credentials ever leave your device.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = KairoOnSurfaceVariant
-                            )
-                        }
-                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // ══════════════════════════════════════════════════════
-            // ── AI BUDDY & AGENT TOGGLES ──
+            // ── 3. VOICE & BUDDY PREFERENCES ──
             // ══════════════════════════════════════════════════════
-            Text(
-                text = "AI BUDDY & ASSISTANT FEATURES",
-                style = MaterialTheme.typography.labelMedium,
-                color = KairoOnSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
+            SectionHeader(title = "PREFERENCES & VOICE", icon = Icons.Default.Mic)
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(KairoSurface)
-                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(CardBg)
+                    .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+                    .padding(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column {
                     // Floating AI Buddy Toggle
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Floating AI Buddy",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = KairoOnSurface
-                            )
-                            Text(
-                                text = "Always-accessible draggable assistant bubble on top of other apps",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoOnSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Switch(
-                            checked = floatingBuddyEnabled,
-                            onCheckedChange = { isChecked ->
-                                if (isChecked) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-                                        try {
-                                            val intent = Intent(
-                                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                Uri.parse("package:${context.packageName}")
-                                            )
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            Log.e("SettingsScreen", "Failed to launch overlay settings", e)
-                                        }
-                                    } else {
-                                        floatingBuddyEnabled = true
-                                        prefs.edit().putBoolean("floating_buddy_enabled", true).apply()
-                                        FloatingBuddyService.start(context)
+                    CleanToggleItem(
+                        title = "Floating AI Buddy",
+                        subtitle = "Show an always-accessible floating bubble on top of other apps",
+                        isChecked = floatingBuddyEnabled,
+                        onCheckedChange = { isChecked ->
+                            if (isChecked) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+                                    try {
+                                        val intent = Intent(
+                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            Uri.parse("package:${context.packageName}")
+                                        )
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Log.e("SettingsScreen", "Failed to launch overlay settings", e)
                                     }
                                 } else {
-                                    floatingBuddyEnabled = false
-                                    prefs.edit().putBoolean("floating_buddy_enabled", false).apply()
-                                    FloatingBuddyService.stop(context)
+                                    floatingBuddyEnabled = true
+                                    prefs.edit().putBoolean("floating_buddy_enabled", true).apply()
+                                    FloatingBuddyService.start(context)
                                 }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = KairoPrimary,
-                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
-                                uncheckedThumbColor = KairoOnSurfaceVariant,
-                                uncheckedTrackColor = KairoSurfaceVariant
-                            )
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ══════════════════════════════════════════════════════
-            // ══════════════════════════════════════════════════════
-            // ── AI REASONING BACKEND (LOCAL VS GEMINI API) ──
-            // ══════════════════════════════════════════════════════
-            Text(
-                text = "AI REASONING ENGINE & BENCHMARK",
-                style = MaterialTheme.typography.labelMedium,
-                color = KairoOnSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(KairoSurface)
-                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(14.dp))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-
-                    // Option 1: On-Device Local LLM
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                llmBackend = "local"
-                                prefs.edit().putString("llm_backend", "local").apply()
+                            } else {
+                                floatingBuddyEnabled = false
+                                prefs.edit().putBoolean("floating_buddy_enabled", false).apply()
+                                FloatingBuddyService.stop(context)
                             }
-                            .padding(vertical = 4.dp)
-                    ) {
-                        RadioButton(
-                            selected = llmBackend == "local",
-                            onClick = {
-                                llmBackend = "local"
-                                prefs.edit().putString("llm_backend", "local").apply()
-                            },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = KairoPrimary,
-                                unselectedColor = KairoOnSurfaceVariant
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "100% On-Device Local Model",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = KairoOnSurface
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(KairoSuccess.copy(alpha = 0.15f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "PRIVACY",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
-                                        color = KairoSuccess
-                                    )
-                                }
-                            }
-                            Text(
-                                text = "Runs LLaMA 3.2 1B locally on phone hardware (zero internet or API keys needed)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = KairoOnSurfaceVariant
-                            )
                         }
-                    }
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 10.dp)
                     )
 
-                    // Option 2: Google Gemini Cloud API
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                llmBackend = "gemini"
-                                prefs.edit().putString("llm_backend", "gemini").apply()
-                            }
-                            .padding(vertical = 4.dp)
-                    ) {
-                        RadioButton(
-                            selected = llmBackend == "gemini",
-                            onClick = {
-                                llmBackend = "gemini"
-                                prefs.edit().putString("llm_backend", "gemini").apply()
-                            },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = Color(0xFF00E5FF),
-                                unselectedColor = KairoOnSurfaceVariant
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Google Gemini Cloud API",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = KairoOnSurface
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF00E5FF).copy(alpha = 0.15f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "TESTING & SPEED",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
-                                        color = Color(0xFF00E5FF)
-                                    )
-                                }
-                            }
-                            Text(
-                                text = "Ultra-fast frontier intelligence with Gemini 2.0 Flash for instant reasoning benchmarks",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = KairoOnSurfaceVariant
-                            )
+                    DividerLine()
+
+                    // Voice Feedback (TTS)
+                    CleanToggleItem(
+                        title = "Voice Feedback",
+                        subtitle = "Speak responses aloud using Text-to-Speech",
+                        isChecked = voiceFeedbackEnabled,
+                        onCheckedChange = { isChecked ->
+                            voiceFeedbackEnabled = isChecked
+                            prefs.edit().putBoolean("voice_feedback_enabled", isChecked).apply()
                         }
-                    }
-
-                    // If Gemini selected: API Key Input & Model Configuration
-                    if (llmBackend == "gemini") {
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(KairoDarkBg)
-                                .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Gemini API Configuration",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = Color(0xFF00E5FF)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = geminiApiKey,
-                                    onValueChange = {
-                                        geminiApiKey = it
-                                        prefs.edit().putString("gemini_api_key", it).apply()
-                                        testResultText = null
-                                    },
-                                    label = { Text("Gemini API Key") },
-                                    placeholder = { Text("AIzaSy...") },
-                                    singleLine = true,
-                                    visualTransformation = if (isKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    trailingIcon = {
-                                        IconButton(onClick = { isKeyVisible = !isKeyVisible }) {
-                                            Icon(
-                                                imageVector = if (isKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                contentDescription = "Toggle API Key visibility",
-                                                tint = KairoOnSurfaceVariant
-                                            )
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = Color(0xFF00E5FF),
-                                        unfocusedBorderColor = KairoSurfaceVariant,
-                                        focusedTextColor = KairoOnSurface,
-                                        unfocusedTextColor = KairoOnSurface,
-                                        focusedLabelColor = Color(0xFF00E5FF),
-                                        unfocusedLabelColor = KairoOnSurfaceVariant
-                                    )
-                                )
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                // Gemini Model Input & Presets
-                                Text(
-                                    text = "Model ID:",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = KairoOnSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                OutlinedTextField(
-                                    value = geminiModel,
-                                    onValueChange = {
-                                        geminiModel = it.trim()
-                                        prefs.edit().putString("gemini_model", it.trim()).apply()
-                                        testResultText = null
-                                    },
-                                    placeholder = { Text("e.g. gemini-2.0-flash, gemini-3.6") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = Color(0xFF00E5FF),
-                                        unfocusedBorderColor = KairoSurfaceVariant,
-                                        focusedTextColor = KairoOnSurface,
-                                        unfocusedTextColor = KairoOnSurface,
-                                        focusedLabelColor = Color(0xFF00E5FF),
-                                        unfocusedLabelColor = KairoOnSurfaceVariant
-                                    )
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Quick Model Preset Chips
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    listOf(
-                                        "gemma-4-26b-a4b-it" to "Gemma 4B",
-                                        "gemini-3.1-flash-lite" to "3.1 Lite",
-                                        "gemini-flash-latest" to "Flash Latest",
-                                        "gemini-3.6-flash" to "3.6 Flash"
-                                    ).forEach { (modelId, label) ->
-                                        val isSelected = geminiModel == modelId
-                                        Box(
-                                            modifier = Modifier
-                                                .padding(end = 6.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(if (isSelected) Color(0xFF00E5FF).copy(alpha = 0.2f) else KairoSurface)
-                                                .border(1.dp, if (isSelected) Color(0xFF00E5FF) else KairoSurfaceVariant, RoundedCornerShape(8.dp))
-                                                .clickable {
-                                                    geminiModel = modelId
-                                                    prefs.edit().putString("gemini_model", modelId).apply()
-                                                    testResultText = null
-                                                }
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text(
-                                                text = label,
-                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal),
-                                                color = if (isSelected) Color(0xFF00E5FF) else KairoOnSurfaceVariant
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                // Test Connection Button
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            if (geminiApiKey.isBlank()) {
-                                                testResultText = "Please enter an API key first"
-                                                isTestSuccess = false
-                                                return@Button
-                                            }
-                                            isTestingConnection = true
-                                            testResultText = null
-                                            scope.launch {
-                                                val result = GeminiClient.testApiKey(geminiApiKey, geminiModel)
-                                                isTestingConnection = false
-                                                if (result.isSuccess) {
-                                                    isTestSuccess = true
-                                                    testResultText = "Connected to $geminiModel!"
-                                                } else {
-                                                    isTestSuccess = false
-                                                    testResultText = result.exceptionOrNull()?.message ?: "Connection failed"
-                                                }
-                                            }
-                                        },
-                                        enabled = !isTestingConnection,
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                                        shape = RoundedCornerShape(10.dp)
-                                    ) {
-                                        if (isTestingConnection) {
-                                            androidx.compose.material3.CircularProgressIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                color = KairoDarkBg,
-                                                strokeWidth = 2.dp
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                        }
-                                        Text(
-                                            text = if (isTestingConnection) "Testing..." else "Test Connection",
-                                            color = KairoDarkBg,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(10.dp))
-
-                                    if (testResultText != null) {
-                                        Text(
-                                            text = testResultText ?: "",
-                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                            color = if (isTestSuccess) KairoSuccess else KairoError,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ══════════════════════════════════════════════════════
-            // ── VOICE & OFFLINE PROCESSING ──
-            // ══════════════════════════════════════════════════════
-            Text(
-                text = "VOICE & OFFLINE PROCESSING",
-                style = MaterialTheme.typography.labelMedium,
-                color = KairoOnSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(KairoSurface)
-                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(14.dp))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // LLM Fallback Toggle
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "LLM Fallback & Agent Brain",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = KairoOnSurface
-                            )
-                            Text(
-                                text = "Use on-device AI for autonomous multi-step agent decisions",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoOnSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Switch(
-                            checked = llmFallbackEnabled,
-                            onCheckedChange = { isChecked ->
-                                llmFallbackEnabled = isChecked
-                                prefs.edit().putBoolean("llm_fallback_enabled", isChecked).apply()
-                                onLlmFallbackToggled(isChecked)
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = KairoPrimary,
-                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
-                                uncheckedThumbColor = KairoOnSurfaceVariant,
-                                uncheckedTrackColor = KairoSurfaceVariant
-                            )
-                        )
-                    }
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
                     )
 
-                    // ── Model 1: LLaMA 3.2 1B Agent Brain ──
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Agent Brain (LLaMA 3.2 1B)",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = KairoOnSurface
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(if (isModelDownloaded) KairoSuccess.copy(alpha = 0.15f) else Color(0xFFFFB300).copy(alpha = 0.15f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = if (isModelDownloaded) "Ready" else "Required",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
-                                        color = if (isModelDownloaded) KairoSuccess else Color(0xFFFFB300)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = if (uiState.isLlmDownloading) {
-                                    "Downloading: ${((uiState.llmDownloadProgress ?: 0f) * 100).toInt()}%"
-                                } else if (isModelDownloaded) {
-                                    "Offline LLM for autonomous multi-step tasks (554MB)"
-                                } else {
-                                    "Required for offline agent & screen reasoning (554MB)"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = KairoOnSurfaceVariant
-                            )
-                            if (uiState.isLlmDownloading) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                androidx.compose.material3.LinearProgressIndicator(
-                                    progress = { uiState.llmDownloadProgress ?: 0f },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp)),
-                                    color = KairoPrimary,
-                                    trackColor = KairoSurfaceVariant
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        if (uiState.isLlmDownloading) {
-                            androidx.compose.material3.CircularProgressIndicator(
-                                progress = { uiState.llmDownloadProgress ?: 0f },
-                                modifier = Modifier.size(24.dp),
-                                color = KairoPrimary,
-                                strokeWidth = 2.5.dp
-                            )
-                        } else if (isModelDownloaded) {
-                            Text(
-                                text = "Installed",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoSuccess,
-                                fontWeight = FontWeight.Bold
-                            )
-                        } else {
-                            Button(
-                                onClick = { viewModel.downloadLlmModel() },
-                                colors = ButtonDefaults.buttonColors(containerColor = KairoPrimary),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("Download", color = KairoOnSurface)
-                            }
-                        }
-                    }
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-
-                    // ── Model 2: On-Device Vision Engine (SmolVLM) ──
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Vision Engine (SmolVLM)",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = KairoOnSurface
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF00E5FF).copy(alpha = 0.15f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "Phase 2C",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
-                                        color = Color(0xFF00E5FF)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Visual screenshot understanding & OCR fallback (350MB)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = KairoOnSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Built-in",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = KairoOnSurfaceVariant,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-
-                    // Voice Feedback
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Voice Feedback",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = KairoOnSurface
-                            )
-                            Text(
-                                text = "Speak responses aloud using Text-to-Speech",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoOnSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Switch(
-                            checked = voiceFeedbackEnabled,
-                            onCheckedChange = { isChecked ->
-                                voiceFeedbackEnabled = isChecked
-                                prefs.edit().putBoolean("voice_feedback_enabled", isChecked).apply()
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = KairoPrimary,
-                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
-                                uncheckedThumbColor = KairoOnSurfaceVariant,
-                                uncheckedTrackColor = KairoSurfaceVariant
-                            )
-                        )
-                    }
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
+                    DividerLine()
 
                     // Mute Microphone
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Mute Microphone",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = KairoOnSurface
-                            )
-                            Text(
-                                text = "Disable microphone voice input recording",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoOnSurfaceVariant
-                            )
+                    CleanToggleItem(
+                        title = "Mute Microphone",
+                        subtitle = "Disable microphone voice recording input",
+                        isChecked = micMuted,
+                        onCheckedChange = { isChecked ->
+                            micMuted = isChecked
+                            prefs.edit().putBoolean("mic_muted", isChecked).apply()
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Switch(
-                            checked = micMuted,
-                            onCheckedChange = { isChecked ->
-                                micMuted = isChecked
-                                prefs.edit().putBoolean("mic_muted", isChecked).apply()
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = KairoPrimary,
-                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
-                                uncheckedThumbColor = KairoOnSurfaceVariant,
-                                uncheckedTrackColor = KairoSurfaceVariant
-                            )
-                        )
-                    }
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
                     )
+
+                    DividerLine()
 
                     // Allow on Lock Screen
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Allow on Lock Screen",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = KairoOnSurface
-                            )
-                            Text(
-                                text = "Allow assistant to run seamlessly over the lock screen without asking to unlock",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoOnSurfaceVariant
-                            )
+                    CleanToggleItem(
+                        title = "Allow on Lock Screen",
+                        subtitle = "Allow assistant to run seamlessly over the phone lock screen",
+                        isChecked = allowOnLockScreen,
+                        onCheckedChange = { isChecked ->
+                            allowOnLockScreen = isChecked
+                            prefs.edit().putBoolean("allow_on_lock_screen", isChecked).apply()
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Switch(
-                            checked = allowOnLockScreen,
-                            onCheckedChange = { isChecked ->
-                                allowOnLockScreen = isChecked
-                                prefs.edit().putBoolean("allow_on_lock_screen", isChecked).apply()
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = KairoPrimary,
-                                checkedTrackColor = KairoPrimary.copy(alpha = 0.3f),
-                                uncheckedThumbColor = KairoOnSurfaceVariant,
-                                uncheckedTrackColor = KairoSurfaceVariant
-                            )
-                        )
-                    }
-
-                    HorizontalDivider(
-                        color = KairoSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
                     )
+
+                    DividerLine()
 
                     // Default Calling SIM
                     Row(
@@ -1107,20 +898,21 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Default Calling SIM",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = KairoOnSurface
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = TextWhite
                             )
                             Text(
-                                text = "Preferred SIM for placing voice calls",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KairoOnSurfaceVariant
+                                text = "Preferred SIM card for placing voice calls",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextMuted
                             )
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Button(
                             onClick = { showSimDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = KairoPrimary),
-                            shape = RoundedCornerShape(12.dp)
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF162032)),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
                         ) {
                             Text(
                                 text = when (defaultSimSetting) {
@@ -1128,7 +920,9 @@ fun SettingsScreen(
                                     "sim2" -> "SIM 2"
                                     else -> "Always Ask"
                                 },
-                                color = KairoOnSurface
+                                color = TextWhite,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
                             )
                         }
                     }
@@ -1139,19 +933,19 @@ fun SettingsScreen(
                             title = {
                                 Text(
                                     text = "Select Default SIM",
-                                    color = KairoOnSurface,
+                                    color = TextWhite,
                                     fontWeight = FontWeight.Bold
                                 )
                             },
-                            containerColor = KairoSurface,
-                            textContentColor = KairoOnSurface,
+                            containerColor = CardBg,
+                            textContentColor = TextWhite,
                             confirmButton = {},
                             dismissButton = {
                                 Button(
                                     onClick = { showSimDialog = false },
-                                    colors = ButtonDefaults.buttonColors(containerColor = KairoSurfaceVariant)
+                                    colors = ButtonDefaults.buttonColors(containerColor = CardBorder)
                                 ) {
-                                    Text("Cancel", color = KairoOnSurface)
+                                    Text("Cancel", color = TextWhite)
                                 }
                             },
                             text = {
@@ -1170,25 +964,25 @@ fun SettingsScreen(
                                                     prefs.edit().putString("default_calling_sim", value).apply()
                                                     showSimDialog = false
                                                 }
-                                                .padding(vertical = 12.dp, horizontal = 8.dp)
+                                                .padding(vertical = 10.dp)
                                         ) {
-                                            androidx.compose.material3.RadioButton(
+                                            RadioButton(
                                                 selected = defaultSimSetting == value,
                                                 onClick = {
                                                     defaultSimSetting = value
                                                     prefs.edit().putString("default_calling_sim", value).apply()
                                                     showSimDialog = false
                                                 },
-                                                colors = androidx.compose.material3.RadioButtonDefaults.colors(
-                                                    selectedColor = KairoPrimary,
-                                                    unselectedColor = KairoOnSurfaceVariant
+                                                colors = RadioButtonDefaults.colors(
+                                                    selectedColor = AccentCyan,
+                                                    unselectedColor = TextMuted
                                                 )
                                             )
-                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Spacer(modifier = Modifier.width(10.dp))
                                             Text(
                                                 text = label,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                color = KairoOnSurface
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = TextWhite
                                             )
                                         }
                                     }
@@ -1199,228 +993,305 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // ══════════════════════════════════════════════════════
-            // ── ABOUT ──
+            // ── 4. ABOUT & DIAGNOSTICS ──
             // ══════════════════════════════════════════════════════
-            Text(
-                text = "ABOUT",
-                style = MaterialTheme.typography.labelMedium,
-                color = KairoOnSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
+            SectionHeader(title = "ABOUT & DIAGNOSTICS", icon = Icons.Default.Info)
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(KairoSurface)
-                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(CardBg)
+                    .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+                    .padding(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Kairo",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = KairoOnSurface
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Version 1.4.1 — AI Buddy & Agent Edition",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = KairoOnSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "An offline, privacy-first AI assistant and autonomous agent for Android. All screen intelligence, LLMs, and gesture automation execute locally on your device.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = KairoOnSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ══════════════════════════════════════════════════════
-            // ── DIAGNOSTICS & LOGS ──
-            // ══════════════════════════════════════════════════════
-            Text(
-                text = "DIAGNOSTICS & LOGS",
-                style = MaterialTheme.typography.labelMedium,
-                color = KairoOnSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-            )
-
-            var diagnosticLogs by remember {
-                mutableStateOf(
-                    run {
-                        val file = java.io.File(context.filesDir, "wakeword_logs.txt")
-                        if (file.exists()) file.readText() else "No logs found yet."
-                    }
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(KairoSurface)
-                    .border(1.dp, KairoSurfaceVariant, RoundedCornerShape(14.dp))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Button(
-                            onClick = {
-                                val file = java.io.File(context.filesDir, "wakeword_logs.txt")
-                                diagnosticLogs = if (file.exists()) file.readText() else "No logs found yet."
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = KairoPrimary),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Refresh Logs", color = KairoOnSurface)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Kairo Assistant",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = TextWhite
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Version 1.4.2 — Autonomous Agent Edition",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextMuted
+                            )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                val file = java.io.File(context.filesDir, "wakeword_logs.txt")
-                                if (file.exists()) {
-                                    file.delete()
-                                }
-                                diagnosticLogs = "Logs cleared successfully."
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = KairoSurfaceVariant),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(AccentCyan.copy(alpha = 0.15f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
-                            Text("Clear Logs", color = KairoOnSurface)
+                            Text(
+                                text = "v1.4.2",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = AccentCyan
+                            )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Box(
+                    // Collapsible Diagnostics Button
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(KairoDarkBg)
-                            .padding(8.dp)
-                            .verticalScroll(rememberScrollState())
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF090D16))
+                            .border(1.dp, CardBorder, RoundedCornerShape(10.dp))
+                            .clickable { isDiagnosticsExpanded = !isDiagnosticsExpanded }
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
-                        androidx.compose.foundation.text.selection.SelectionContainer {
-                            Text(
-                                text = diagnosticLogs,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = KairoOnSurface
-                            )
+                        Text(
+                            text = "Diagnostic Logs",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = TextWhite,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = if (isDiagnosticsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = TextMuted
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = isDiagnosticsExpanded,
+                        enter = fadeIn(tween(150)) + expandVertically(),
+                        exit = fadeOut(tween(150)) + shrinkVertically()
+                    ) {
+                        Column(modifier = Modifier.padding(top = 10.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Button(
+                                    onClick = {
+                                        val file = java.io.File(context.filesDir, "wakeword_logs.txt")
+                                        diagnosticLogs = if (file.exists()) file.readText() else "No logs found yet."
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF162032)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(vertical = 6.dp)
+                                ) {
+                                    Text("Refresh", color = TextWhite, fontSize = 12.sp)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = {
+                                        val file = java.io.File(context.filesDir, "wakeword_logs.txt")
+                                        if (file.exists()) file.delete()
+                                        diagnosticLogs = "Logs cleared."
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF162032)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(vertical = 6.dp)
+                                ) {
+                                    Text("Clear", color = TextMuted, fontSize = 12.sp)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(130.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF060910))
+                                    .padding(8.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                androidx.compose.foundation.text.selection.SelectionContainer {
+                                    Text(
+                                        text = diagnosticLogs,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                        color = TextMuted
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(36.dp))
         }
     }
 }
 
-/**
- * Reusable row for system permission / agent setting with live badge and direct settings action.
- */
+// ── Reusable Section Header ──
 @Composable
-private fun AgentPermissionRow(
+private fun SectionHeader(title: String, icon: ImageVector) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = AccentCyan,
+            modifier = Modifier.size(15.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                letterSpacing = 0.5.sp
+            ),
+            color = AccentCyan
+        )
+    }
+}
+
+// ── Clean Permission Item ──
+@Composable
+private fun CleanPermissionItem(
     icon: ImageVector,
     title: String,
-    badgeText: String,
-    description: String,
+    subtitle: String,
     isGranted: Boolean,
-    buttonLabel: String,
-    onButtonClick: () -> Unit
+    actionLabel: String,
+    onAction: () -> Unit
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onAction() }
+            .padding(vertical = 4.dp)
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(40.dp)
+                .size(36.dp)
                 .clip(CircleShape)
-                .background(if (isGranted) KairoSuccess.copy(alpha = 0.15f) else KairoPrimary.copy(alpha = 0.15f))
+                .background(if (isGranted) AccentGreen.copy(alpha = 0.15f) else Color(0xFF162032))
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = title,
-                tint = if (isGranted) KairoSuccess else KairoPrimary,
-                modifier = Modifier.size(20.dp)
+                tint = if (isGranted) AccentGreen else AccentCyan,
+                modifier = Modifier.size(18.dp)
             )
         }
 
         Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = KairoOnSurface
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (isGranted) KairoSuccess.copy(alpha = 0.15f) else Color(0xFFFFB300).copy(alpha = 0.15f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = if (isGranted) "Active" else badgeText,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 9.sp
-                        ),
-                        color = if (isGranted) KairoSuccess else Color(0xFFFFB300)
-                    )
-                }
-            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                ),
+                color = TextWhite
+            )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = KairoOnSurfaceVariant,
-                lineHeight = 16.sp
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                color = TextMuted,
+                lineHeight = 15.sp
             )
         }
 
         Spacer(modifier = Modifier.width(10.dp))
 
-        Button(
-            onClick = onButtonClick,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isGranted) KairoSurfaceVariant else KairoPrimary
-            ),
-            shape = RoundedCornerShape(10.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-            modifier = Modifier.height(34.dp)
-        ) {
-            if (isGranted && buttonLabel == "Granted") {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = KairoSuccess,
-                    modifier = Modifier.size(14.dp)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (isGranted) Color(0xFF162032) else AccentCyan)
+                .border(
+                    1.dp,
+                    if (isGranted) CardBorder else Color.Transparent,
+                    RoundedCornerShape(8.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                .clickable { onAction() }
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isGranted && (actionLabel == "Active" || actionLabel == "Granted" || actionLabel == "Unrestricted")) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = AccentGreen,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                Text(
+                    text = actionLabel,
+                    color = if (isGranted) (if (actionLabel == "Active" || actionLabel == "Granted" || actionLabel == "Unrestricted") AccentGreen else TextWhite) else Color.Black,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                )
             }
-            Text(
-                text = buttonLabel,
-                color = if (isGranted && buttonLabel == "Granted") KairoSuccess else KairoOnSurface,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-            )
         }
     }
+}
+
+// ── Clean Toggle Item ──
+@Composable
+private fun CleanToggleItem(
+    title: String,
+    subtitle: String,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp),
+                color = TextWhite
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+                lineHeight = 15.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Switch(
+            checked = isChecked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.Black,
+                checkedTrackColor = AccentCyan,
+                uncheckedThumbColor = TextMuted,
+                uncheckedTrackColor = Color(0xFF162032)
+            )
+        )
+    }
+}
+
+// ── Thin Subtle Divider ──
+@Composable
+private fun DividerLine() {
+    HorizontalDivider(
+        color = CardBorder,
+        modifier = Modifier.padding(vertical = 12.dp)
+    )
 }
 
 // ── Permission Helper Functions ──
