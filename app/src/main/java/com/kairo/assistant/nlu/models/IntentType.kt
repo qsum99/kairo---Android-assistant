@@ -30,6 +30,7 @@ enum class IntentType {
     DRAFT_MESSAGE,  // "Draft a WhatsApp message..."
     ORDER_ITEM,      // "Order milk from Blinkit"
     AGENT_TASK,      // Autonomous multi-step task
+    CREATE_AUTOMATION, // "When X, do Y" automation recipe
     UNKNOWN
 }
 

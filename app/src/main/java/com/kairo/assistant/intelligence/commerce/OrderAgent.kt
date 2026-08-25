@@ -5,6 +5,7 @@ import android.content.Intent
 import android.util.Log
 import com.kairo.assistant.agent.AgentEngine
 import com.kairo.assistant.nlu.rules.OrderIntentMatcher
+import com.kairo.assistant.screen.KairoAccessibilityService
 
 private const val TAG = "OrderAgent"
 
@@ -43,8 +44,18 @@ class OrderAgent(private val context: Context) {
             return OrderResult(false, "Failed to open $appDisplayName")
         }
 
-        // Wait for app to load
-        kotlinx.coroutines.delay(2500)
+        // Wait for the target app to actually reach the foreground — no blind sleep
+        val accessibilityService = KairoAccessibilityService.getInstance()
+        if (accessibilityService != null) {
+            accessibilityService.waitForPackage(packageName, timeoutMs = 6000)
+            // Let the first stable frame settle before the agent reads the screen
+            accessibilityService.waitForMeaningfulChange(
+                accessibilityService.currentSignature(), timeoutMs = 2000
+            )
+        } else {
+            Log.w(TAG, "Accessibility service unavailable, falling back to fixed delay")
+            kotlinx.coroutines.delay(2500)
+        }
 
         // Delegate to AgentEngine for intelligent screen-based automation
         val agentEngine = AgentEngine(context)

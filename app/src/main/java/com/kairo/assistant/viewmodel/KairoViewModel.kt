@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.update
 import com.kairo.assistant.data.local.ChatMessageEntity
 import com.kairo.assistant.data.local.KairoDatabase
 import com.kairo.assistant.intelligence.context.PhoneContextProvider
+import com.kairo.assistant.intelligence.learning.AppKnowledgeManager
 import kotlinx.coroutines.launch
 
 private const val TAG = "KairoViewModel"
@@ -85,7 +86,16 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
         LlmParser(application)
     }
     private val router: CommandRouter by lazy {
-        CommandRouter(ruleParser, llmParser)
+        val prefs = application.getSharedPreferences("kairo_prefs", Context.MODE_PRIVATE)
+        val apiKey = prefs.getString("gemini_api_key", "") ?: ""
+        val rawModel = prefs.getString("gemini_model", "gemini-3.1-flash-lite") ?: "gemini-3.1-flash-lite"
+        val model = if (rawModel.contains("3.5") || rawModel.contains("2.5")) "gemini-3.1-flash-lite" else rawModel
+        CommandRouter(
+            ruleParser = ruleParser,
+            llmParser = llmParser,
+            geminiApiKey = apiKey.ifBlank { null },
+            geminiModel = model
+        )
     }
     private val dispatcher: ActionDispatcher by lazy {
         ActionDispatcher()
@@ -103,6 +113,10 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     // Room Database for persistence
     private val database: KairoDatabase by lazy {
         KairoDatabase.getInstance(application)
+    }
+    // Phase B: Learned flow manager for agent replay
+    private val knowledgeManager: AppKnowledgeManager by lazy {
+        AppKnowledgeManager(database.appKnowledgeDao())
     }
     val agentProgress: StateFlow<AgentProgress> get() = agentEngine.progress
 
@@ -564,7 +578,8 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                             agentEngine.executeTask(
                                 userCommand = taskDesc,
                                 tts = tts,
-                                maxSteps = 15
+                                maxSteps = 15,
+                                knowledgeManager = knowledgeManager
                             )
                         }
                         com.kairo.assistant.actions.ActionResult(

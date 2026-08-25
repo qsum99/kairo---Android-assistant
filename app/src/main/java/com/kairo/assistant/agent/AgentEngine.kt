@@ -9,7 +9,11 @@ import com.kairo.assistant.screen.KairoAccessibilityService
 import com.kairo.assistant.screen.ScreenLayout
 import com.kairo.assistant.screen.ScreenLayoutParser
 import com.kairo.assistant.screen.ScrollDirection
+import com.kairo.assistant.screen.ScreenElement
 import com.kairo.assistant.tts.KairoTTS
+import com.kairo.assistant.intelligence.learning.AppKnowledgeManager
+import com.kairo.assistant.intelligence.learning.FlowReplayer
+import com.kairo.assistant.intelligence.learning.RecordedStep
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,7 +52,8 @@ class AgentEngine(private val context: Context) {
     suspend fun executeTask(
         userCommand: String,
         tts: KairoTTS? = null,
-        maxSteps: Int = 15
+        maxSteps: Int = 15,
+        knowledgeManager: AppKnowledgeManager? = null
     ) {
         isCancelled = false
         var stepCount = 0
@@ -87,7 +92,38 @@ class AgentEngine(private val context: Context) {
             LlamaEngine.initialize(context)
         }
 
+        // ── Phase B: Try replaying a learned flow before hitting the LLM ──
+        if (knowledgeManager != null) {
+            _progress.value = _progress.value.copy(currentAction = "Checking for learned shortcut...")
+            val learnedFlow = knowledgeManager.findFlow(userCommand)
+            if (learnedFlow != null) {
+                Log.i(TAG, "Found learned flow: ${learnedFlow.steps.size} steps, successCount=${learnedFlow.successCount}")
+                _progress.value = _progress.value.copy(currentAction = "Replaying learned shortcut...")
+                tts?.speak("Using a known shortcut")
+
+                val replaySuccess = FlowReplayer.replay(learnedFlow, accessibilityService) { idx, desc, _ ->
+                    _progress.value = _progress.value.copy(currentStep = idx + 1, currentAction = desc)
+                }
+
+                if (replaySuccess) {
+                    knowledgeManager.recordSuccess(learnedFlow.packageName, userCommand, learnedFlow.steps)
+                    tts?.speak("Done!")
+                    _progress.value = _progress.value.copy(
+                        status = AgentStatus.COMPLETED,
+                        currentAction = "Task completed (learned shortcut)"
+                    )
+                    return
+                } else {
+                    Log.w(TAG, "Replay failed, falling back to LLM mode")
+                    knowledgeManager.recordFailure(learnedFlow.packageName, userCommand)
+                    tts?.speak("Shortcut didn't work, figuring it out the long way")
+                }
+            }
+        }
+
         var consecutiveRetries = 0
+        var consecutiveNoChange = 0
+        val recordedSteps = mutableListOf<RecordedStep>()
 
         while (stepCount < maxSteps && !isCancelled) {
             try {
@@ -168,6 +204,12 @@ class AgentEngine(private val context: Context) {
                         status = AgentStatus.COMPLETED,
                         currentAction = summary
                     )
+                    // Phase B: Save the learned flow for future replay
+                    if (knowledgeManager != null && recordedSteps.isNotEmpty()) {
+                        val pkg = accessibilityService.currentPackage
+                        knowledgeManager.recordSuccess(pkg, userCommand, recordedSteps)
+                        Log.i(TAG, "Saved learned flow: ${recordedSteps.size} steps in $pkg")
+                    }
                     return
                 }
 
@@ -187,7 +229,9 @@ class AgentEngine(private val context: Context) {
                         executeAction(accessibilityService, fallbackDecision.action)
                         previousAction = fallbackDecision.description
                         consecutiveRetries = 0
-                        delay(1500)
+                        accessibilityService.waitForMeaningfulChange(
+                            accessibilityService.signatureOf(screenLayout), 2500
+                        )
                         stepCount++
                         continue
                     }
@@ -200,11 +244,46 @@ class AgentEngine(private val context: Context) {
                     tts?.speak(actionDesc)
                 }
 
+                // 5b. Execute the action, then wait for a *meaningful* screen change
+                // (signature change stable for a settle window — not just any event)
+                val baselineSignature = accessibilityService.signatureOf(screenLayout)
                 executeAction(accessibilityService, decision.action)
-                previousAction = actionDesc
 
-                // 6. Wait for screen to update
-                delay(1500)
+                val screenChanged = if (decision.action is AgentAction.Wait) {
+                    // Explicit waits already consumed their own duration — short check only
+                    accessibilityService.waitForMeaningfulChange(baselineSignature, 600)
+                } else {
+                    accessibilityService.waitForMeaningfulChange(baselineSignature, 2500)
+                }
+
+                // 6. Feed the real outcome into the next reasoning step
+                if (screenChanged) {
+                    consecutiveNoChange = 0
+                    previousAction = "$actionDesc (screen updated)"
+                } else {
+                    consecutiveNoChange++
+                    Log.w(TAG, "Action had no visible effect ($consecutiveNoChange in a row)")
+                    previousAction =
+                        "$actionDesc (NO EFFECT: the screen did not change. Do NOT repeat this exact action — try a different approach)"
+                    if (consecutiveNoChange >= 2) {
+                        // Escalate: let heuristics force a different class of action
+                        Log.w(TAG, "Two consecutive no-effect actions, escalating to heuristics")
+                        val escalation = smartHeuristicFallback(userCommand, screenLayout, stepCount)
+                        if (escalation.action !is AgentAction.Wait) {
+                            val escalationBaseline = accessibilityService.currentSignature()
+                            executeAction(accessibilityService, escalation.action)
+                            accessibilityService.waitForMeaningfulChange(escalationBaseline, 2500)
+                            previousAction = "Escalation: ${escalation.description}"
+                        }
+                        consecutiveNoChange = 0
+                    }
+                }
+
+                // Phase B: Record the step for future replay
+                if (screenChanged && decision.action !is AgentAction.Wait && decision.action !is AgentAction.Complete) {
+                    recordedSteps.add(recordStep(decision.action, screenLayout))
+                }
+
                 stepCount++
 
             } catch (e: Exception) {
@@ -487,6 +566,73 @@ class AgentEngine(private val context: Context) {
             lower.contains("gmail") || lower.contains("mail") -> "com.google.android.gm"
             else -> name
         }
+    }
+
+    // ── Phase B: Step recording helpers ─────────────────────────────────
+
+    /**
+     * Convert a just-executed AgentAction into a RecordedStep for future replay.
+     * Resolves tap coordinates back to the element that was tapped so we
+     * store semantic anchors instead of brittle pixel positions.
+     */
+    private fun recordStep(action: AgentAction, layout: ScreenLayout): RecordedStep {
+        return when (action) {
+            is AgentAction.Tap -> {
+                val element = findElementAt(layout, action.x, action.y)
+                RecordedStep(
+                    action = "tap",
+                    elementText = element?.text?.toString() ?: element?.contentDescription?.toString(),
+                    elementClass = element?.className?.toString()?.substringAfterLast('.'),
+                    nearText = findNearTextAnchor(layout, element),
+                    fallbackX = action.x,
+                    fallbackY = action.y
+                )
+            }
+            is AgentAction.TypeText -> {
+                val focused = layout.elements.find { it.isEditable }
+                RecordedStep(
+                    action = "type",
+                    typeText = action.text,
+                    elementText = focused?.text?.toString() ?: focused?.contentDescription?.toString(),
+                    elementClass = focused?.className?.toString()?.substringAfterLast('.'),
+                    fallbackX = focused?.bounds?.centerX() ?: 540,
+                    fallbackY = focused?.bounds?.centerY() ?: 960
+                )
+            }
+            is AgentAction.Scroll -> RecordedStep(
+                action = "scroll",
+                scrollDir = action.direction.name.lowercase()
+            )
+            is AgentAction.PressBack -> RecordedStep(action = "back")
+            else -> RecordedStep(action = "wait")
+        }
+    }
+
+    /**
+     * Find the ScreenElement whose bounds contain the given coordinates.
+     */
+    private fun findElementAt(layout: ScreenLayout, x: Int, y: Int): ScreenElement? {
+        return layout.elements.find { it.bounds.contains(x, y) }
+    }
+
+    /**
+     * Find the nearest text-bearing element to serve as a disambiguation anchor.
+     * This becomes the `nearText` in the recorded step — when multiple "Add"
+     * buttons exist, the replay engine picks the one closest to this anchor.
+     */
+    private fun findNearTextAnchor(layout: ScreenLayout, target: ScreenElement?): String? {
+        if (target == null) return null
+        val tx = target.bounds.centerX()
+        val ty = target.bounds.centerY()
+        return layout.elements
+            .filter { it !== target }
+            .filter { !it.text.isNullOrBlank() || !it.contentDescription.isNullOrBlank() }
+            .minByOrNull {
+                val dx = it.bounds.centerX() - tx
+                val dy = it.bounds.centerY() - ty
+                dx * dx + dy * dy
+            }
+            ?.let { it.text?.toString() ?: it.contentDescription?.toString() }
     }
 
     /**

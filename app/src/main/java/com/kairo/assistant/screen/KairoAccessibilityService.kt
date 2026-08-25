@@ -6,10 +6,12 @@ import android.content.Intent
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -74,8 +76,14 @@ class KairoAccessibilityService : AccessibilityService() {
     }
 
     // Track current window for change detection
-    private var currentPackage: String = ""
-    private var currentActivity: String = ""
+    private var _currentPackage: String = ""
+    private var _currentActivity: String = ""
+
+    /** Currently foreground package name. */
+    val currentPackage: String get() = _currentPackage
+
+    /** Currently foreground activity name. */
+    val currentActivity: String get() = _currentActivity
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -90,9 +98,9 @@ class KairoAccessibilityService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 val pkg = event.packageName?.toString() ?: ""
                 val cls = event.className?.toString() ?: ""
-                if (pkg != currentPackage || cls != currentActivity) {
-                    currentPackage = pkg
-                    currentActivity = cls
+                if (pkg != _currentPackage || cls != _currentActivity) {
+                    _currentPackage = pkg
+                    _currentActivity = cls
                     Log.d(TAG, "Window changed: $pkg / $cls")
                 }
             }
@@ -208,6 +216,85 @@ class KairoAccessibilityService : AccessibilityService() {
      */
     fun findEditableElements(): List<ScreenElement> {
         return getScreenLayout().elements.filter { it.isEditable }
+    }
+
+    // ──────────────────────────────────────────────
+    // MEANINGFUL CHANGE DETECTION
+    // ──────────────────────────────────────────────
+
+    /**
+     * Compute a cheap signature of a screen layout for change detection.
+     * Two layouts are "meaningfully different" when the window (package/activity)
+     * or the set of visible element labels changes. Scroll offsets and
+     * animations that don't alter the element set are ignored.
+     */
+    fun signatureOf(layout: ScreenLayout): Int {
+        var hash = 31 * layout.packageName.hashCode() + layout.activityName.hashCode()
+        for (element in layout.elements) {
+            hash = 31 * hash + element.label().hashCode()
+        }
+        return hash
+    }
+
+    /**
+     * Signature of whatever is currently on screen.
+     */
+    fun currentSignature(): Int = signatureOf(getScreenLayout())
+
+    /**
+     * Wait until the screen changes *meaningfully* relative to [baselineSignature],
+     * or [timeoutMs] elapses. Returns true if a meaningful change was observed.
+     *
+     * A change only counts once the new signature has been stable for [settleMs],
+     * so streaming animations and transitional frames don't trigger early returns.
+     */
+    suspend fun waitForMeaningfulChange(
+        baselineSignature: Int,
+        timeoutMs: Long = 2000,
+        settleMs: Long = 300
+    ): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        var pendingSignature = -1
+        var pendingSince = 0L
+
+        while (SystemClock.uptimeMillis() < deadline) {
+            val signature = currentSignature()
+            when {
+                // Fell back to baseline — whatever flickered wasn't a real change
+                signature == baselineSignature -> {
+                    pendingSignature = -1
+                    pendingSince = 0L
+                }
+                // New changed signature seen — start the settle window
+                signature != pendingSignature -> {
+                    pendingSignature = signature
+                    pendingSince = SystemClock.uptimeMillis()
+                }
+                // Changed signature held stable long enough — real change
+                SystemClock.uptimeMillis() - pendingSince >= settleMs -> return true
+            }
+            delay(120)
+        }
+
+        // Timed out — a net difference still counts as a change, otherwise "no effect"
+        return currentSignature() != baselineSignature
+    }
+
+    /**
+     * Wait until the foreground window belongs to [packageName], or timeout.
+     * Used instead of blind sleeps after launching an app.
+     */
+    suspend fun waitForPackage(packageName: String, timeoutMs: Long = 5000): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (currentPackage == packageName) return true
+            delay(200)
+        }
+        val arrived = currentPackage == packageName
+        if (!arrived) {
+            Log.w(TAG, "waitForPackage timed out: wanted $packageName, foreground is $currentPackage")
+        }
+        return arrived
     }
 
     // ──────────────────────────────────────────────

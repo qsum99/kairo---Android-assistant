@@ -6,6 +6,7 @@ import com.kairo.assistant.nlu.models.IntentType
 import com.kairo.assistant.nlu.models.ParsedCommand
 import com.kairo.assistant.nlu.rules.AgentIntentMatcher
 import com.kairo.assistant.nlu.rules.ScreenAwareIntentMatcher
+import com.kairo.assistant.automation.AutomationIntentMatcher
 
 /**
  * Top-level command router that delegates to matchers in priority order:
@@ -17,7 +18,9 @@ import com.kairo.assistant.nlu.rules.ScreenAwareIntentMatcher
  */
 class CommandRouter(
     private val ruleParser: RuleBasedParser,
-    private val llmParser: LlmParser? = null
+    private val llmParser: LlmParser? = null,
+    private val geminiApiKey: String? = null,
+    private val geminiModel: String? = null
 ) {
 
     companion object {
@@ -27,7 +30,7 @@ class CommandRouter(
     /**
      * Parses a voice transcript into a [ParsedCommand].
      *
-     * Flow: Screen matcher → Agent matcher → Rule parser → LLM → fallback
+     * Flow: Screen matcher → Agent matcher → Automation matcher → Rule parser → LLM → fallback
      */
     suspend fun parse(transcript: String): ParsedCommand {
         // 1. Check for screen-aware queries ("what's on my screen?", "explain this")
@@ -44,7 +47,16 @@ class CommandRouter(
             return agentMatch
         }
 
-        // 3. Rule-based parser (fast intent matching)
+        // 3. Check for automation ("when X, do Y") — requires Gemini API
+        if (geminiApiKey != null && geminiModel != null) {
+            val automationMatch = AutomationIntentMatcher.match(transcript, geminiApiKey, geminiModel)
+            if (automationMatch != null) {
+                Log.d(TAG, "Automation match: ${automationMatch.intent}")
+                return automationMatch
+            }
+        }
+
+        // 4. Rule-based parser (fast intent matching)
         val ruleResult = ruleParser.tryMatch(transcript)
 
         // High-confidence rule match — return immediately

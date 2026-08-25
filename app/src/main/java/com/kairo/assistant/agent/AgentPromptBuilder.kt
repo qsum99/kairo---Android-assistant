@@ -39,7 +39,7 @@ object AgentPromptBuilder {
             }
             appendLine("TASK: $task")
             if (previousAction.isNotBlank()) {
-                appendLine("LAST ACTION: $previousAction")
+                appendLine("LAST ACTION & RESULT: $previousAction")
             }
             appendLine("STEP: ${stepNumber + 1}")
             appendLine()

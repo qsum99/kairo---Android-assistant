@@ -3,6 +3,7 @@
 import android.content.Context
 import com.kairo.assistant.nlu.models.IntentType
 import com.kairo.assistant.nlu.models.ParsedCommand
+import com.kairo.assistant.automation.AutomationExecutor
 
 class ActionDispatcher {
 
@@ -31,7 +32,9 @@ class ActionDispatcher {
         IntentType.SCREEN_EXPLAIN to ScreenQueryExecutor(),
         // Smart Drafting & Commerce
         IntentType.DRAFT_MESSAGE to DraftMessageExecutor(),
-        IntentType.ORDER_ITEM to OrderItemExecutor()
+        IntentType.ORDER_ITEM to OrderItemExecutor(),
+        // Automation
+        IntentType.CREATE_AUTOMATION to AutomationExecutor()
     )
 
     fun dispatch(command: ParsedCommand, context: Context): ActionResult {
