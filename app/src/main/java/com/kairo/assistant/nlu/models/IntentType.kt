@@ -1,4 +1,4 @@
-package com.kairo.assistant.nlu.models
+﻿package com.kairo.assistant.nlu.models
 
 /**
  * All supported intent types for the Kairo voice assistant.
@@ -27,6 +27,9 @@ enum class IntentType {
     SET_VOLUME,
     SCREEN_QUERY,    // "What's on my screen?"
     SCREEN_EXPLAIN,  // "Explain this" / "Help me with this"
+    DRAFT_MESSAGE,  // "Draft a WhatsApp message..."
+    ORDER_ITEM,      // "Order milk from Blinkit"
     AGENT_TASK,      // Autonomous multi-step task
     UNKNOWN
 }
+

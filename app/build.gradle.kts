@@ -1,6 +1,7 @@
-plugins {
+﻿plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -113,6 +114,13 @@ dependencies {
     // JSON parsing for LLM response parsing
     implementation("org.json:json:20240303")
 
+    // Room Database (persistence for chat history, app knowledge, automation recipes)
+    implementation("androidx.room:room-runtime:2.7.1")
+    implementation("androidx.room:room-ktx:2.7.1")
+    ksp("androidx.room:room-compiler:2.7.1")
+
+    // WorkManager (background automation triggers)
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     // Debug tooling
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -127,3 +135,4 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
+
