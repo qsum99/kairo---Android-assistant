@@ -1,4 +1,4 @@
-package com.kairo.assistant.viewmodel
+﻿package com.kairo.assistant.viewmodel
 
 import android.app.Application
 import android.content.Context
@@ -25,6 +25,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import com.kairo.assistant.data.local.ChatMessageEntity
+import com.kairo.assistant.data.local.KairoDatabase
+import com.kairo.assistant.intelligence.context.PhoneContextProvider
 import kotlinx.coroutines.launch
 
 private const val TAG = "KairoViewModel"
@@ -96,6 +99,10 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
     // Agent engine for autonomous multi-step tasks
     private val agentEngine: AgentEngine by lazy {
         AgentEngine(application)
+    }
+    // Room Database for persistence
+    private val database: KairoDatabase by lazy {
+        KairoDatabase.getInstance(application)
     }
     val agentProgress: StateFlow<AgentProgress> get() = agentEngine.progress
 
@@ -851,6 +858,21 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update {
                     it.copy(status = AssistantStatus.IDLE, shouldExit = true)
                 }
+            }
+        }
+    }
+
+    /**
+     * Persist a conversation turn to Room database for history.
+     */
+    private fun persistChatMessage(isUser: Boolean, text: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                database.chatMessageDao().insert(
+                    ChatMessageEntity(isUser = isUser, text = text)
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to persist chat message", e)
             }
         }
     }
