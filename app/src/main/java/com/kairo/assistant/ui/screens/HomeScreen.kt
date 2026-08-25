@@ -1,4 +1,4 @@
-package com.kairo.assistant.ui.screens
+﻿package com.kairo.assistant.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -121,7 +121,8 @@ import kotlin.math.sin
 @Composable
 fun HomeScreen(
     viewModel: KairoViewModel,
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onDraftClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val agentProgress by viewModel.agentProgress.collectAsState()

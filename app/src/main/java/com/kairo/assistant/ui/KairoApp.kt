@@ -1,4 +1,4 @@
-package com.kairo.assistant.ui
+﻿package com.kairo.assistant.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.kairo.assistant.ui.screens.DraftScreen
 import com.kairo.assistant.ui.screens.HomeScreen
 import com.kairo.assistant.ui.screens.PermissionScreen
 import com.kairo.assistant.ui.screens.SettingsScreen
@@ -70,6 +71,10 @@ fun KairoApp(onExit: () -> Unit = {}) {
                 onSettingsClick = {
                     kairoViewModel.stopListening() // Release mic when opening settings
                     navController.navigate("settings")
+                },
+                onDraftClick = {
+                    kairoViewModel.stopListening()
+                    navController.navigate("draft")
                 }
             )
         }
@@ -83,6 +88,14 @@ fun KairoApp(onExit: () -> Unit = {}) {
                     kairoViewModel.setLlmFallbackEnabled(enabled)
                 },
                 viewModel = kairoViewModel
+            )
+        }
+
+        composable("draft") {
+            DraftScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
             )
         }
     }

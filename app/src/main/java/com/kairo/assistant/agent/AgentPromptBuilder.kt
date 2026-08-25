@@ -1,4 +1,4 @@
-package com.kairo.assistant.agent
+﻿package com.kairo.assistant.agent
 
 import com.kairo.assistant.screen.ScreenLayout
 import com.kairo.assistant.screen.ScreenLayoutParser
@@ -18,12 +18,14 @@ object AgentPromptBuilder {
      * @param screenLayout The current screen's UI tree
      * @param previousAction Description of the last action taken (empty if first step)
      * @param stepNumber Current step number (0-based)
+     * @param deviceContext Optional device context string (battery, wifi, time, etc.)
      */
     fun buildNextActionPrompt(
         task: String,
         screenLayout: ScreenLayout,
         previousAction: String,
-        stepNumber: Int
+        stepNumber: Int,
+        deviceContext: String? = null
     ): String {
         val screenText = ScreenLayoutParser.toInteractiveText(screenLayout, maxElements = 15)
 
@@ -31,6 +33,10 @@ object AgentPromptBuilder {
             appendLine("You are an Android phone automation agent.")
             appendLine("Your job: complete the user's task by choosing ONE action at a time.")
             appendLine()
+            if (!deviceContext.isNullOrBlank()) {
+                appendLine(deviceContext)
+                appendLine()
+            }
             appendLine("TASK: $task")
             if (previousAction.isNotBlank()) {
                 appendLine("LAST ACTION: $previousAction")
@@ -70,6 +76,38 @@ object AgentPromptBuilder {
             appendLine("USER QUESTION: $question")
             appendLine()
             appendLine("Answer in 1-2 short sentences:")
+        }
+    }
+
+    /**
+     * Build a context-aware conversational prompt that includes device intelligence.
+     *
+     * @param userMessage The user's message
+     * @param deviceContext Device context string from PhoneContextProvider
+     * @param conversationHistory Recent conversation for continuity
+     */
+    fun buildContextAwarePrompt(
+        userMessage: String,
+        deviceContext: String,
+        conversationHistory: List<Pair<Boolean, String>> = emptyList()
+    ): String {
+        return buildString {
+            appendLine("You are Kairo, an intelligent personal phone assistant.")
+            appendLine("You have access to the user's device context and can answer questions about their phone.")
+            appendLine()
+            appendLine(deviceContext)
+            appendLine()
+            if (conversationHistory.isNotEmpty()) {
+                appendLine("RECENT CONVERSATION:")
+                conversationHistory.takeLast(6).forEach { (isUser, text) ->
+                    val role = if (isUser) "User" else "Kairo"
+                    appendLine("$role: $text")
+                }
+                appendLine()
+            }
+            appendLine("User: $userMessage")
+            appendLine()
+            appendLine("Respond helpfully and concisely. If the user asks about their phone status, use the device context above.")
         }
     }
 

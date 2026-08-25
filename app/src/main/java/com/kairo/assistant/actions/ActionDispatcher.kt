@@ -1,4 +1,4 @@
-package com.kairo.assistant.actions
+﻿package com.kairo.assistant.actions
 
 import android.content.Context
 import com.kairo.assistant.nlu.models.IntentType
@@ -29,6 +29,9 @@ class ActionDispatcher {
         // Screen AI
         IntentType.SCREEN_QUERY to ScreenQueryExecutor(),
         IntentType.SCREEN_EXPLAIN to ScreenQueryExecutor(),
+        // Smart Drafting & Commerce
+        IntentType.DRAFT_MESSAGE to DraftMessageExecutor(),
+        IntentType.ORDER_ITEM to OrderItemExecutor()
     )
 
     fun dispatch(command: ParsedCommand, context: Context): ActionResult {

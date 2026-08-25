@@ -1,4 +1,4 @@
-package com.kairo.assistant.nlu
+﻿package com.kairo.assistant.nlu
 
 import com.kairo.assistant.data.AppResolver
 import com.kairo.assistant.data.ContactResolver
@@ -22,6 +22,8 @@ import com.kairo.assistant.nlu.rules.AirplaneModeIntentMatcher
 import com.kairo.assistant.nlu.rules.HotspotIntentMatcher
 import com.kairo.assistant.nlu.rules.MediaIntentMatcher
 import com.kairo.assistant.nlu.rules.VolumeIntentMatcher
+import com.kairo.assistant.nlu.rules.DraftIntentMatcher
+import com.kairo.assistant.nlu.rules.OrderIntentMatcher
 
 /**
  * Iterates through a prioritised list of rule-based matchers and returns the
@@ -35,6 +37,10 @@ class RuleBasedParser(
     private val matchers: List<IntentMatcher> = listOf(
         GreetingIntentMatcher(),
         ExitIntentMatcher(),
+        // Smart features (high priority - specific patterns)
+        DraftIntentMatcher(),
+        OrderIntentMatcher(),
+        // Standard intents
         GoogleSearchIntentMatcher(),
         BingSearchIntentMatcher(),
         TorchIntentMatcher(),
