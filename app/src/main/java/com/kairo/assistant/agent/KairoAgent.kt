@@ -18,7 +18,7 @@ enum class KairoAgent(
 ) {
     COORDINATOR(
         displayName = "Kairo",
-        emoji = "\uD83D\uDC3A",  // Wolf
+        emoji = "K",  // Kairo initial
         colorHex = 0xFF00D2FF,
         charter = "I see all, I route all",
         description = "Central coordinator that orchestrates all agents",

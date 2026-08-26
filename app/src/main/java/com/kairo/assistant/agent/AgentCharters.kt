@@ -9,9 +9,9 @@ object AgentCharters {
     /** Fun status messages when an agent starts working. */
     fun getStartMessage(agent: KairoAgent): String = when (agent) {
         KairoAgent.COORDINATOR -> listOf(
-            "\uD83D\uDC3A Routing your request...",
-            "\uD83D\uDC3A Let me find the right agent for this...",
-            "\uD83D\uDC3A I see all, I route all!"
+            "K Routing your request...",
+            "K Let me find the right agent for this...",
+            "K I see all, I route all!"
         ).random()
 
         KairoAgent.SCOUT -> listOf(
@@ -45,7 +45,7 @@ object AgentCharters {
 
     /** Fun status messages when an agent completes work. */
     fun getCompleteMessage(agent: KairoAgent): String = when (agent) {
-        KairoAgent.COORDINATOR -> "\uD83D\uDC3A Done!"
+        KairoAgent.COORDINATOR -> "K Done!"
         KairoAgent.SCOUT -> listOf(
             "\uD83D\uDD0D Found it!",
             "\uD83D\uDD0D Case closed!",
