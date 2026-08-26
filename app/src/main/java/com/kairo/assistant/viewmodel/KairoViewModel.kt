@@ -6,6 +6,9 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kairo.assistant.actions.ActionDispatcher
+import com.kairo.assistant.agent.AgentCharters
+import com.kairo.assistant.agent.KairoAgent
+import com.kairo.assistant.service.FloatingBuddyService
 import com.kairo.assistant.agent.AgentEngine
 import com.kairo.assistant.agent.AgentProgress
 import com.kairo.assistant.agent.AgentStatus
@@ -748,6 +751,13 @@ class KairoViewModel(application: Application) : AndroidViewModel(application) {
                 response = "Cancelled"
             )
         }
+    }
+
+    /**
+     * Clear the active agent after task completes.
+     */
+    private fun clearActiveAgent() {
+        FloatingBuddyService.updateActiveAgent(null)
     }
 
     private fun handleActionResult(

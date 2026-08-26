@@ -1,4 +1,4 @@
-package com.kairo.assistant.service
+﻿package com.kairo.assistant.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -15,34 +15,8 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
 import android.widget.FrameLayout
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Assistant
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -52,6 +26,8 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.kairo.assistant.MainActivity
+import com.kairo.assistant.agent.KairoAgent
+import com.kairo.assistant.ui.overlay.AgentRadialMenu
 import kotlin.math.abs
 
 private const val TAG = "FloatingBuddyService"
@@ -62,26 +38,26 @@ private const val NOTIFICATION_ID = 1001
  * State of the floating buddy bubble.
  */
 enum class BuddyState {
-    IDLE,       // Pulsing cyan — waiting for user
-    LISTENING,  // Glowing green — actively recording
-    PROCESSING, // Spinning — thinking
-    SPEAKING    // Glowing blue — speaking response
+    IDLE,       // Pulsing cyan - waiting for user
+    LISTENING,  // Glowing green - actively recording
+    PROCESSING, // Spinning - thinking
+    SPEAKING    // Glowing blue - speaking response
 }
 
 /**
- * Foreground service that draws a floating AI buddy bubble over other apps.
+ * Foreground service that draws the multi-agent radial overlay over other apps.
  *
- * The bubble is draggable, tap-to-activate, and shows state-driven animations.
- * Inspired by chat-head style UIs (Facebook Messenger, HeyClicky).
+ * Features a central Kairo (wolf) coordinator bubble surrounded by 4 specialist
+ * agent bubbles (Scout, Runner, Builder, Scribe) that expand radially on tap.
  */
 class FloatingBuddyService : Service() {
 
     private lateinit var windowManager: WindowManager
     private var floatingView: FrameLayout? = null
-    private var isExpanded = false
 
-    // State holders for Compose
+    // Compose state holders
     private val buddyState = mutableStateOf(BuddyState.IDLE)
+    private val activeAgent = mutableStateOf<KairoAgent?>(null)
     private val lastResponse = mutableStateOf("")
     private val lastQuery = mutableStateOf("")
     private val isExpandedState = mutableStateOf(false)
@@ -95,14 +71,15 @@ class FloatingBuddyService : Service() {
             instance?.buddyState?.value = state
         }
 
+        fun updateActiveAgent(agent: KairoAgent?) {
+            instance?.activeAgent?.value = agent
+        }
+
         fun updateResponse(query: String, response: String) {
             instance?.lastQuery?.value = query
             instance?.lastResponse?.value = response
         }
 
-        /**
-         * Start the floating buddy service.
-         */
         fun start(context: Context) {
             val intent = Intent(context, FloatingBuddyService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -112,9 +89,6 @@ class FloatingBuddyService : Service() {
             }
         }
 
-        /**
-         * Stop the floating buddy service.
-         */
         fun stop(context: Context) {
             context.stopService(Intent(context, FloatingBuddyService::class.java))
         }
@@ -129,24 +103,24 @@ class FloatingBuddyService : Service() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
         addFloatingBubble()
-        Log.i(TAG, "Floating buddy service started")
+        Log.i(TAG, "Multi-agent floating overlay started")
     }
 
     override fun onDestroy() {
         super.onDestroy()
         removeFloatingBubble()
         instance = null
-        Log.i(TAG, "Floating buddy service destroyed")
+        Log.i(TAG, "Multi-agent floating overlay destroyed")
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Kairo AI Buddy",
+                "Kairo AI Agents",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Keeps Kairo AI Buddy floating on screen"
+                description = "Keeps Kairo AI agents floating on screen"
                 setShowBadge(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
@@ -163,8 +137,8 @@ class FloatingBuddyService : Service() {
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("Kairo AI Buddy")
-                .setContentText("Tap the floating bubble to talk")
+                .setContentTitle("Kairo AI Agents")
+                .setContentText("Tap the floating wolf to summon your agents")
                 .setSmallIcon(android.R.drawable.ic_btn_speak_now)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
@@ -172,8 +146,8 @@ class FloatingBuddyService : Service() {
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
-                .setContentTitle("Kairo AI Buddy")
-                .setContentText("Tap the floating bubble to talk")
+                .setContentTitle("Kairo AI Agents")
+                .setContentText("Tap the floating wolf to summon your agents")
                 .setSmallIcon(android.R.drawable.ic_btn_speak_now)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
@@ -208,14 +182,15 @@ class FloatingBuddyService : Service() {
             setViewTreeLifecycleOwner(lifecycleOwner)
             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
             setContent {
-                FloatingBubbleContent(
-                    state = buddyState.value,
+                AgentRadialMenu(
                     isExpanded = isExpandedState.value,
+                    buddyState = buddyState.value,
+                    activeAgent = activeAgent.value,
                     lastQuery = lastQuery.value,
                     lastResponse = lastResponse.value,
-                    onTap = { handleBubbleTap() },
-                    onClose = { stopSelf() },
-                    onExpandToggle = { isExpandedState.value = !isExpandedState.value }
+                    onCoordinatorTap = { handleCoordinatorTap() },
+                    onAgentTap = { agent -> handleAgentTap(agent) },
+                    onClose = { stopSelf() }
                 )
             }
         }
@@ -224,9 +199,7 @@ class FloatingBuddyService : Service() {
             addView(composeView)
         }
 
-        // Make bubble draggable
         setupDragBehavior(floatingView!!, layoutParams)
-
         windowManager.addView(floatingView, layoutParams)
     }
 
@@ -260,8 +233,7 @@ class FloatingBuddyService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!isDragging) {
-                        // It was a tap, not a drag
-                        handleBubbleTap()
+                        handleCoordinatorTap()
                     }
                     true
                 }
@@ -270,31 +242,35 @@ class FloatingBuddyService : Service() {
         }
     }
 
-    private fun handleBubbleTap() {
+    private fun handleCoordinatorTap() {
         if (isExpandedState.value) {
-            // Collapse if already expanded
+            // If expanded, collapse the radial menu
             isExpandedState.value = false
             return
         }
 
-        when (buddyState.value) {
-            BuddyState.IDLE -> {
-                // Open Kairo main activity for voice input
-                val intent = Intent(this, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    putExtra("start_listening", true)
-                }
-                startActivity(intent)
-            }
-            BuddyState.LISTENING, BuddyState.PROCESSING -> {
-                // Show expanded card with current state
-                isExpandedState.value = true
-            }
-            BuddyState.SPEAKING -> {
-                // Show expanded card with response
-                isExpandedState.value = true
-            }
+        // Expand the radial menu to show agent options
+        isExpandedState.value = true
+
+        // Also open Kairo main activity for voice input
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra("start_listening", true)
         }
+        startActivity(intent)
+    }
+
+    private fun handleAgentTap(agent: KairoAgent) {
+        Log.i(TAG, "Agent tapped: ${agent.displayName} ${agent.emoji}")
+        activeAgent.value = agent
+
+        // Open Kairo with a hint about which agent was selected
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra("start_listening", true)
+            putExtra("forced_agent", agent.name)
+        }
+        startActivity(intent)
     }
 
     private fun removeFloatingBubble() {
@@ -326,187 +302,5 @@ private class BuddyLifecycleOwner : LifecycleOwner, SavedStateRegistryOwner {
 
     fun handleLifecycleEvent(event: Lifecycle.Event) {
         lifecycleRegistry.handleLifecycleEvent(event)
-    }
-}
-
-/**
- * Compose UI for the floating bubble and expandable conversation card.
- */
-@Composable
-private fun FloatingBubbleContent(
-    state: BuddyState,
-    isExpanded: Boolean,
-    lastQuery: String,
-    lastResponse: String,
-    onTap: () -> Unit,
-    onClose: () -> Unit,
-    onExpandToggle: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.End
-    ) {
-        // Main bubble
-        BubbleOrb(state = state, onTap = onTap)
-
-        // Expanded conversation card
-        if (isExpanded && (lastQuery.isNotBlank() || lastResponse.isNotBlank())) {
-            Spacer(modifier = Modifier.height(8.dp))
-            ConversationCard(
-                query = lastQuery,
-                response = lastResponse,
-                state = state,
-                onClose = onClose
-            )
-        }
-    }
-}
-
-/**
- * The floating orb/bubble with state-driven animations.
- */
-@Composable
-private fun BubbleOrb(
-    state: BuddyState,
-    onTap: () -> Unit
-) {
-    // Pulse animation for idle state
-    val infiniteTransition = rememberInfiniteTransition(label = "bubble")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (state == BuddyState.IDLE) 1.08f else 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (state == BuddyState.IDLE) 2000 else 800,
-                easing = FastOutSlowInEasing
-            ),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
-    )
-
-    // Glow color based on state
-    val glowColor = when (state) {
-        BuddyState.IDLE -> Color(0xFF00BCD4)       // Cyan
-        BuddyState.LISTENING -> Color(0xFF4CAF50)   // Green
-        BuddyState.PROCESSING -> Color(0xFFFF9800)  // Orange
-        BuddyState.SPEAKING -> Color(0xFF2196F3)    // Blue
-    }
-
-    val bgGradient = Brush.radialGradient(
-        colors = listOf(
-            glowColor.copy(alpha = 0.9f),
-            glowColor.copy(alpha = 0.6f),
-            Color(0xFF1A1A2E)
-        )
-    )
-
-    Box(
-        modifier = Modifier
-            .size(56.dp)
-            .scale(pulseScale)
-            .shadow(
-                elevation = 12.dp,
-                shape = CircleShape,
-                ambientColor = glowColor.copy(alpha = 0.4f),
-                spotColor = glowColor.copy(alpha = 0.4f)
-            )
-            .clip(CircleShape)
-            .background(bgGradient)
-            .border(
-                width = 2.dp,
-                color = glowColor.copy(alpha = 0.7f),
-                shape = CircleShape
-            )
-            .pointerInput(Unit) {
-                detectTapGestures { onTap() }
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = when (state) {
-                BuddyState.LISTENING -> Icons.Default.Mic
-                else -> Icons.Default.Assistant
-            },
-            contentDescription = "Kairo AI Buddy",
-            tint = Color.White,
-            modifier = Modifier.size(28.dp)
-        )
-    }
-}
-
-/**
- * Expandable conversation card showing last query and response.
- */
-@Composable
-private fun ConversationCard(
-    query: String,
-    response: String,
-    state: BuddyState,
-    onClose: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .width(260.dp)
-            .shadow(8.dp, shape = MaterialTheme.shapes.medium)
-            .clip(MaterialTheme.shapes.medium)
-            .background(Color(0xFF1A1A2E))
-            .padding(12.dp)
-    ) {
-        Column {
-            // Header with close button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = when (state) {
-                        BuddyState.IDLE -> "Kairo"
-                        BuddyState.LISTENING -> "Listening..."
-                        BuddyState.PROCESSING -> "Thinking..."
-                        BuddyState.SPEAKING -> "Speaking..."
-                    },
-                    color = Color(0xFF00BCD4),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                IconButton(
-                    onClick = onClose,
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = Color.White.copy(alpha = 0.6f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // User query
-            if (query.isNotBlank()) {
-                Text(
-                    text = query,
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 12.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-            }
-
-            // AI response
-            if (response.isNotBlank()) {
-                Text(
-                    text = response,
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
     }
 }

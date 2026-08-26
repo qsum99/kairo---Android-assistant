@@ -1,8 +1,8 @@
-package com.kairo.assistant.ui.theme
+﻿package com.kairo.assistant.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ── Cyber Cyan-Teal (Blue-Green Mix) Palette ──
+// Core Kairo Palette
 val KairoDarkBg = Color(0xFF000000)
 val KairoSurface = Color(0xFF050B14)
 val KairoSurfaceVariant = Color(0xFF0B192C)
@@ -18,3 +18,10 @@ val KairoWarning = Color(0xFFF59E0B)
 val KairoPurple = Color(0xFF8B5CF6)
 val KairoGradientStart = Color(0xFF00D2FF)
 val KairoGradientEnd = Color(0xFF00E676)
+
+// Agent Colors
+val AgentCoordinatorColor = Color(0xFF00D2FF)  // Cyan - Kairo Wolf
+val AgentScoutColor = Color(0xFF4A9EFF)        // Blue - Research
+val AgentRunnerColor = Color(0xFF00E676)       // Green - Execution
+val AgentBuilderColor = Color(0xFFFF9800)      // Orange - Work
+val AgentScribeColor = Color(0xFF8B5CF6)       // Purple - Drafting
